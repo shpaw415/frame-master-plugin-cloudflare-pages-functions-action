@@ -76,6 +76,9 @@ async function makeActionRequest(
   const res = await fetch(pathname, {
     method,
     body: props.length > 0 ? InitActionData(...props) : undefined,
+    headers: {
+      "x-server-action": "true",
+    },
   });
   return await ParseServerActionResponse(res);
 }
@@ -88,9 +91,9 @@ async function ParseServerActionResponse(response: Response) {
       `error when Calling worker action ${response.url}: ${response.statusText}`
     );
 
-  switch (response.headers.get("dataType") as ServerActionDataTypeHeader) {
+  switch (response.headers.get("datatype") as ServerActionDataTypeHeader) {
     case "json":
-      const props = ((await response.json()) as { props: any }).props;
+      const props = (await response.json()) as { props: any };
       return props;
     case "blob":
       return await response.blob();
@@ -106,11 +109,16 @@ async function ParseServerActionResponse(response: Response) {
     case "response":
       return response;
     default:
-      throw new Error(
-        `Unsupported data type returned from server action: ${response.headers.get(
-          "dataType"
-        )}`
-      );
+      try {
+        return await response.json();
+      } catch (e) {
+        throw new Error(
+          `Unsupported data type returned from server action: ${response.headers.get(
+            "dataType"
+          )}`,
+          { cause: e }
+        );
+      }
   }
 }
 

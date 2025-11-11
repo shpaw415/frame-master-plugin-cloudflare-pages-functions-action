@@ -165,6 +165,10 @@ export default function createCloudFlareWorkerActionPlugin(
   return {
     name: "frame-master-plugin-cloudflare-worker-action",
     version: PackageJson.version,
+    priority: -1,
+    requirement: {
+      frameMasterVersion: "^2.0.4",
+    },
     build: {
       buildConfig: async () => ({
         ...(await createConfig()),
@@ -224,39 +228,49 @@ export default function createCloudFlareWorkerActionPlugin(
         startWrangler();
       },
     },
-    serverConfig: {
-      routes: {
-        "/*": async (req) => {
-          const url = new URL(req.url);
+    router: {
+      async request(master) {
+        if (
+          master.isResponseSetted() ||
+          !master.request.headers.get("x-server-action")
+        )
+          return;
+        const url = master.URL;
+        const req = master.request;
 
-          const targetUrl = `http://localhost:${serverPort}${url.pathname}${url.search}`;
+        const targetUrl = `http://localhost:${serverPort}${url.pathname}${url.search}`;
 
-          const headers = new Headers(req.headers);
-          headers.set("host", `localhost:${serverPort}`);
+        const headers = new Headers(req.headers);
+        headers.set("host", `localhost:${serverPort}`);
 
-          const isBodyAllowed = !["GET", "HEAD"].includes(req.method);
-          console.log(
-            `Proxying request to Cloudflare Worker Action: ${req.method} ${targetUrl}`
-          );
-          const res = await fetch(targetUrl, {
-            method: req.method,
-            headers,
-            body: isBodyAllowed ? req.body : undefined,
-          });
-          if (res.headers.get("Content-Encoding") === "gzip") {
-            const unzipped = await res.text();
-            const newHeaders = new Headers(res.headers);
-            newHeaders.delete("Content-Encoding");
-            return new Response(unzipped, {
+        const isBodyAllowed = !["GET", "HEAD"].includes(req.method);
+        console.log(
+          `Proxying request to Cloudflare Worker Action: ${req.method} ${targetUrl}`
+        );
+        master.preventLog();
+        const res = await fetch(targetUrl, {
+          method: req.method,
+          headers,
+          body: isBodyAllowed ? req.body : undefined,
+        });
+        if (res.headers.get("Content-Encoding") === "gzip") {
+          const unzipped = await res.text();
+          const newHeaders = new Headers(res.headers);
+          newHeaders.delete("Content-Encoding");
+          master
+            .setResponse(unzipped, {
               status: res.status,
               headers: newHeaders,
-            });
-          }
-          return new Response(await res.arrayBuffer(), {
+            })
+            .sendNow();
+          return;
+        }
+        master
+          .setResponse(await res.arrayBuffer(), {
             status: res.status,
             headers: res.headers,
-          });
-        },
+          })
+          .sendNow();
       },
     },
   };

@@ -20,12 +20,6 @@ A Frame Master plugin that brings **type-safe server actions** to Cloudflare Pag
 bun add frame-master-plugin-cloudflare-pages-functions-action
 ```
 
-or
-
-```bash
-npm install frame-master-plugin-cloudflare-pages-functions-action
-```
-
 ## 🚀 Quick Start
 
 ### 1. Configure the Plugin

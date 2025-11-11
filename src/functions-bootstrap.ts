@@ -1,4 +1,8 @@
-import type { EventContext, FormData } from "@cloudflare/workers-types";
+import type {
+  EventContext,
+  FormData,
+  Response as CFResponse,
+} from "@cloudflare/workers-types";
 
 type Metods = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS";
 
@@ -7,7 +11,8 @@ function parseData(formData: FormData) {
   const batchsIDs: string[] = [];
   for (const [key, value] of Array.from(formData.entries())) {
     if (key.startsWith("FILE_")) propsArray.push(value as unknown as File);
-    else if (key.startsWith("FILES_") && !batchsIDs.includes(key)) {
+    else if (key.startsWith("FILES_")) {
+      if (batchsIDs.includes(key)) continue;
       batchsIDs.push(key);
       propsArray.push(formData.getAll(key) as unknown as Array<File>);
     } else {
@@ -20,14 +25,18 @@ function parseData(formData: FormData) {
 export default async function WrapRequestHandler(
   context: EventContext<any, any, any>,
   methods: Record<Metods, (...args: unknown[]) => unknown>
-) {
+): Promise<CFResponse> {
   const method = context.request.method as Metods;
   if (!(method in methods)) {
-    return new Response(`Method ${method} Not Allowed`, { status: 405 });
+    return new Response(`Method ${method} Not Allowed`, {
+      status: 405,
+    }) as unknown as CFResponse;
   }
   const endpoint = methods[method];
   if (typeof endpoint !== "function") {
-    return new Response(`Method ${method} Not Implemented`, { status: 501 });
+    return new Response(`Method ${method} Not Implemented`, {
+      status: 501,
+    }) as unknown as CFResponse;
   }
 
   const parsedData =
@@ -42,41 +51,43 @@ export default async function WrapRequestHandler(
   parsedData.push(context);
 
   const result = await endpoint(...parsedData);
-
+  console.log("Action result:", typeof result);
   switch (typeof result) {
     case "string":
     case "number":
     case "boolean":
     case "bigint":
-      return new Response(JSON.stringify(result), {
-        headers: { "Content-Type": "application/json", dataType: "json" },
-      });
+      const res = new Response(JSON.stringify(result));
+      res.headers.set("Content-Type", "application/json");
+      res.headers.set("dataType", "json");
+      return res as unknown as CFResponse;
     case "undefined":
-      return new Response(null, { status: 204 });
+      return new Response(null, { status: 204 }) as unknown as CFResponse;
     case "object":
       if (result instanceof Response) {
         result.headers.set("dataType", "response");
-        return result;
+        return result as unknown as CFResponse;
       } else if (result instanceof Blob) {
-        return new Response(result, {
-          headers: { dataType: "blob", "Content-Type": result.type },
-        });
+        const res = new Response(await result.arrayBuffer());
+        res.headers.set("dataType", "blob");
+        res.headers.set("Content-Type", result.type);
+        return res as unknown as CFResponse;
       } else if (result instanceof File) {
-        const response = new Response(result, {
-          headers: {
-            dataType: "file",
-            "Content-Type": result.type,
-            fileData: JSON.stringify({
-              name: result.name,
-              lastModified: result.lastModified,
-            }),
-          },
-        });
-        return response;
+        const res = new Response(await result.arrayBuffer());
+        res.headers.set("dataType", "file");
+        res.headers.set("Content-Type", result.type);
+        res.headers.set(
+          "fileData",
+          JSON.stringify({
+            name: result.name,
+            lastModified: result.lastModified,
+          })
+        );
+        return res as unknown as CFResponse;
       } else {
         return new Response(JSON.stringify(result), {
           headers: { "Content-Type": "application/json", dataType: "json" },
-        });
+        }) as unknown as CFResponse;
       }
     default:
       throw new Error(`Unsupported return type from action: ${typeof result}`);
