@@ -22,6 +22,16 @@ function parseData(formData: FormData) {
   return propsArray;
 }
 
+function paramsFromURL(url: URL): Array<unknown> {
+  const params = url.searchParams
+    .entries()
+    .toArray()
+    .map(([_, v]) => v);
+  return params.map((param) =>
+    JSON.parse(decodeURIComponent(param))
+  ) as Array<unknown>;
+}
+
 export default async function WrapRequestHandler(
   context: EventContext<any, any, any>,
   methods: Record<Metods, (...args: unknown[]) => unknown>
@@ -41,7 +51,7 @@ export default async function WrapRequestHandler(
 
   const parsedData =
     context.request.method === "GET" || context.request.method === "HEAD"
-      ? []
+      ? paramsFromURL(new URL(context.request.url))
       : parseData(await context.request.formData());
 
   const missingProps = endpoint.length - parsedData.length;
@@ -51,7 +61,6 @@ export default async function WrapRequestHandler(
   parsedData.push(context);
 
   const result = await endpoint(...parsedData);
-  console.log("Action result:", typeof result);
   switch (typeof result) {
     case "string":
     case "number":

@@ -67,9 +67,24 @@ async function makeActionRequest(
 ) {
   if (method === "GET" || method === "HEAD") {
     if (props.length > 0) {
-      throw new Error(
-        `Cannot send data with ${method} requests in Worker Actions`
-      );
+      const url = new URL(pathname, window.location.origin);
+      let i = 0;
+      for (const prop of props) {
+        i = i++;
+        url.searchParams.append(
+          `arg_${i}`,
+          encodeURIComponent(JSON.stringify(prop))
+        );
+      }
+      pathname = url.toString();
+      const res = await fetch(pathname, {
+        method,
+        headers: {
+          "x-server-action": "true",
+          "x-params-url": "true",
+        },
+      });
+      return await ParseServerActionResponse(res);
     }
   }
 
