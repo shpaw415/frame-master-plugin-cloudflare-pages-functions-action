@@ -1,0 +1,27 @@
+{
+  "name": "frame-master-plugin-cloudflare-page-functions-action",
+  "module": "index.ts",
+  "version": "0.1.0",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest",
+    "wrangler": "^4.46.0"
+  },
+  "peerDependencies": {
+    "typescript": "^5.9.3",
+    "frame-master": "^2.0.4"
+  },
+  "dependencies": {
+    "@cloudflare/workers-types": "^4.20251109.0",
+    "cloudflare": "5.2.0",
+    "miniflare": "^4.20251105.0"
+  },
+  "exports": {
+    ".": "./index.ts",
+    "./context": "./src/context.ts",
+    "./types": "./src/types.ts"
+  },
+  "scripts": {
+    "build:miniflare": "bun build src/dev/miniflare-script.ts --outfile dist/dev/miniflare-script.js"
+  }
+}
