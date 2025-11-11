@@ -1,5 +1,5 @@
 import { type FrameMasterPlugin } from "frame-master/plugin";
-import PackageJson from "./package.json";
+import PackageJson from "../package.json";
 import { join } from "path";
 import { mkdir } from "fs/promises";
 import { getBuilder } from "frame-master/build";
@@ -73,7 +73,7 @@ export default function createCloudFlareWorkerActionPlugin(
               { filter: /^cloudflare-worker-action\/bootstrap$/ },
               (args) => {
                 return {
-                  path: join(__dirname, "src", "bootstrap.ts"),
+                  path: join(__dirname, "bootstrap.ts"),
                   namespace: "cloudflare-client-bootstrap",
                 };
               }
@@ -182,7 +182,7 @@ export default function createCloudFlareWorkerActionPlugin(
     serverStart: {
       async main() {
         transpiledCloudFlareScript = await Bun.file(
-          join(__dirname, "dist", "dev", "miniflare-script.js")
+          join(__dirname, "..", "dist", "dev", "miniflare-script.js")
         ).text();
         try {
           await rm(FUNCTION_DIR, { recursive: true, force: true });
@@ -215,6 +215,10 @@ export default function createCloudFlareWorkerActionPlugin(
           process.on("SIGINT", (sig) => {
             proc.kill(sig);
             process.exit();
+          });
+          process.on("exit", (code) => {
+            proc.kill();
+            process.exit(code);
           });
         };
         startWrangler();

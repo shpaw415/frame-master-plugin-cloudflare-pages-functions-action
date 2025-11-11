@@ -1,6 +1,5 @@
 {
-  "name": "frame-master-plugin-cloudflare-page-functions-action",
-  "module": "index.ts",
+  "name": "frame-master-plugin-cloudflare-pages-functions-action",
   "version": "0.1.0",
   "type": "module",
   "devDependencies": {
@@ -12,12 +11,10 @@
     "frame-master": "^2.0.4"
   },
   "dependencies": {
-    "@cloudflare/workers-types": "^4.20251109.0",
-    "cloudflare": "5.2.0",
-    "miniflare": "^4.20251105.0"
+    "@cloudflare/workers-types": "^4.20251109.0"
   },
   "exports": {
-    ".": "./index.ts",
+    ".": "./src/index.ts",
     "./context": "./src/context.ts",
     "./types": "./src/types.ts"
   },
