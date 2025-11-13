@@ -36,6 +36,11 @@ export default async function WrapRequestHandler(
   context: EventContext<any, any, any>,
   methods: Record<Metods, (...args: unknown[]) => unknown>
 ): Promise<CFResponse> {
+  const isServerAction =
+    context.request.headers.get("x-server-action") === "true";
+  if (!isServerAction) {
+    return new Response("Not Found", { status: 404 }) as unknown as CFResponse;
+  }
   const method = context.request.method as Metods;
   if (!(method in methods)) {
     return new Response(`Method ${method} Not Allowed`, {

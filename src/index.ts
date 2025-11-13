@@ -200,6 +200,7 @@ export default function createCloudFlareWorkerActionPlugin(
         );
       },
       dev_main() {
+        if (process.env.BUILD_MODE) return;
         const outdir =
           getBuilder()?.getConfig()?.outdir || ".frame-master/build";
         const startWrangler = async () => {
