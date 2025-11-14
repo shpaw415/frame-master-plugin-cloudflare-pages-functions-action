@@ -27,9 +27,9 @@ export const onRequest: PagesFunction = async (context) => {
   };
 
   if (!options[method]) {
-    return new Response("Method Not Allowed", {
+    return new Response(`Method "${method}" Not Allowed`, {
       status: 405,
     }) as unknown as CFResponse;
   }
-  return await Wrapper(context, options);
+  return await Wrapper(context, options[method]);
 };

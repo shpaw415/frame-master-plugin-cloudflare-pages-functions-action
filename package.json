@@ -9,7 +9,8 @@
   },
   "peerDependencies": {
     "typescript": "^5.9.3",
-    "frame-master": "^2.0.5"
+    "frame-master": "^2.0.5",
+    "npm": "11.6.2"
   },
   "exports": {
     ".": "./src/index.ts",

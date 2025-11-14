@@ -4,15 +4,13 @@
   "workspaces": {
     "": {
       "name": "cloudflare-worker-action",
-      "dependencies": {
-        "@cloudflare/workers-types": "^4.20251109.0",
-      },
       "devDependencies": {
+        "@cloudflare/workers-types": "^4.20251109.0",
         "@types/bun": "latest",
         "wrangler": "^4.46.0",
       },
       "peerDependencies": {
-        "frame-master": "^2.0.4",
+        "frame-master": "^2.0.5",
         "typescript": "^5.9.3",
       },
     },

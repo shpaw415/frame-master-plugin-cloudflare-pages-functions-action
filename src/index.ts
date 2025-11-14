@@ -102,9 +102,11 @@ export default function createCloudFlareWorkerActionPlugin(
                 .pop()!
                 .split(".");
               clientPathArray.pop();
-              const clientPath = clientPathArray
-                .join(".")
-                .replaceAll(/\\/g, "/");
+              let clientPath = clientPathArray.join(".").replaceAll(/\\/g, "/");
+
+              if (clientPath.endsWith("/index")) {
+                clientPath = clientPath.slice(0, -"/index".length);
+              }
 
               return {
                 contents: [
@@ -154,6 +156,9 @@ export default function createCloudFlareWorkerActionPlugin(
       entrypoints: [entryPoint],
       plugins: entryPoint.match(/.*_middleware\.(js|ts)$/) ? [] : [devPlugin],
       splitting: false,
+      minify: {
+        keepNames: true,
+      },
     });
   };
   const createRouteMatcher = () =>
@@ -224,6 +229,14 @@ export default function createCloudFlareWorkerActionPlugin(
           process.on("exit", (code) => {
             proc.kill();
             process.exit(code);
+          });
+          process.on("SIGTERM", (sig) => {
+            proc.kill(sig);
+            process.exit();
+          });
+          process.on("SIGHUP", (sig) => {
+            proc.kill(sig);
+            process.exit();
           });
         };
         startWrangler();

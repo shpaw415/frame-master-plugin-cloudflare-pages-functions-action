@@ -1,1 +1,95 @@
-function f(e){let t=[],o=[];for(let[s,r]of Array.from(e.entries()))if(s.startsWith("FILE_"))t.push(r);else if(s.startsWith("FILES_")){if(o.includes(s))continue;o.push(s),t.push(e.getAll(s))}else t.push(JSON.parse(decodeURI(r)));return t}function c(e){return e.searchParams.entries().toArray().map(([o,s])=>s).map((o)=>JSON.parse(decodeURIComponent(o)))}async function u(e,t){if(e.request.headers.get("x-server-action")!=="true")return new Response("Not Found",{status:404});let s=e.request.method;if(!(s in t))return new Response(`Method ${s} Not Allowed`,{status:405});let r=t[s];if(typeof r!=="function")return new Response(`Method ${s} Not Implemented`,{status:501});let p=e.request.method==="GET"||e.request.method==="HEAD"?c(new URL(e.request.url)):f(await e.request.formData()),d=r.length-p.length;for(let i=0;i<d;i++)p.push(void 0);p.push(e);let n=await r(...p);switch(typeof n){case"string":case"number":case"boolean":case"bigint":let i=new Response(JSON.stringify(n));return i.headers.set("Content-Type","application/json"),i.headers.set("dataType","json"),i;case"undefined":return new Response(null,{status:204});case"object":if(n instanceof Response)return n.headers.set("dataType","response"),n;else if(n instanceof Blob){let a=new Response(await n.arrayBuffer());return a.headers.set("dataType","blob"),a.headers.set("Content-Type",n.type),a}else if(n instanceof File){let a=new Response(await n.arrayBuffer());return a.headers.set("dataType","file"),a.headers.set("Content-Type",n.type),a.headers.set("fileData",JSON.stringify({name:n.name,lastModified:n.lastModified})),a}else return new Response(JSON.stringify(n),{headers:{"Content-Type":"application/json",dataType:"json"}});default:throw Error(`Unsupported return type from action: ${typeof n}`)}}var T=async(e)=>{let t=e.request.method,o={GET:typeof GET==="function"?GET:void 0,POST:typeof POST==="function"?POST:void 0,PUT:typeof PUT==="function"?PUT:void 0,DELETE:typeof DELETE==="function"?DELETE:void 0,PATCH:typeof PATCH==="function"?PATCH:void 0,HEAD:typeof HEAD==="function"?HEAD:void 0,OPTIONS:typeof OPTIONS==="function"?OPTIONS:void 0};if(!o[t])return new Response("Method Not Allowed",{status:405});return await u(e,o)};export{T as onRequest};
+// src/functions-bootstrap.ts
+function parseData(formData) {
+  const propsArray = [];
+  const batchsIDs = [];
+  for (const [key, value] of Array.from(formData.entries())) {
+    if (key.startsWith("FILE_"))
+      propsArray.push(value);
+    else if (key.startsWith("FILES_")) {
+      if (batchsIDs.includes(key))
+        continue;
+      batchsIDs.push(key);
+      propsArray.push(formData.getAll(key));
+    } else {
+      propsArray.push(JSON.parse(decodeURI(value)));
+    }
+  }
+  return propsArray;
+}
+function paramsFromURL(url) {
+  const params = url.searchParams.entries().toArray().map(([_, v]) => v);
+  return params.map((param) => JSON.parse(decodeURIComponent(param)));
+}
+async function WrapRequestHandler(context, endpoint) {
+  const isServerAction = context.request.headers.get("x-server-action") === "true";
+  if (!isServerAction) {
+    return new Response("Not Found", { status: 404 });
+  }
+  const parsedData = context.request.method === "GET" || context.request.method === "HEAD" ? paramsFromURL(new URL(context.request.url)) : parseData(await context.request.formData());
+  const missingProps = endpoint.length - parsedData.length;
+  for (let i = 0;i < missingProps; i++) {
+    parsedData.push(undefined);
+  }
+  parsedData.push(context);
+  const result = await endpoint(...parsedData);
+  switch (typeof result) {
+    case "string":
+    case "number":
+    case "boolean":
+    case "bigint":
+      const res = new Response(JSON.stringify(result));
+      res.headers.set("Content-Type", "application/json");
+      res.headers.set("dataType", "json");
+      return res;
+    case "undefined":
+      return new Response(null, { status: 204 });
+    case "object":
+      if (result instanceof Response) {
+        result.headers.set("dataType", "response");
+        return result;
+      } else if (result instanceof Blob) {
+        const res2 = new Response(await result.arrayBuffer());
+        res2.headers.set("dataType", "blob");
+        res2.headers.set("Content-Type", result.type);
+        return res2;
+      } else if (result instanceof File) {
+        const res2 = new Response(await result.arrayBuffer());
+        res2.headers.set("dataType", "file");
+        res2.headers.set("Content-Type", result.type);
+        res2.headers.set("fileData", JSON.stringify({
+          name: result.name,
+          lastModified: result.lastModified
+        }));
+        return res2;
+      } else {
+        return new Response(JSON.stringify(result), {
+          headers: { "Content-Type": "application/json", dataType: "json" }
+        });
+      }
+    default:
+      throw new Error(`Unsupported return type from action: ${typeof result}`);
+  }
+}
+
+// src/dev/miniflare-script.ts
+var onRequest = async (context) => {
+  const method = context.request.method;
+  const options = {
+    GET: typeof GET === "function" ? GET : undefined,
+    POST: typeof POST === "function" ? POST : undefined,
+    PUT: typeof PUT === "function" ? PUT : undefined,
+    DELETE: typeof DELETE === "function" ? DELETE : undefined,
+    PATCH: typeof PATCH === "function" ? PATCH : undefined,
+    HEAD: typeof HEAD === "function" ? HEAD : undefined,
+    OPTIONS: typeof OPTIONS === "function" ? OPTIONS : undefined
+  };
+  if (!options[method]) {
+    return new Response(`Method "${method}" Not Allowed`, {
+      status: 405
+    });
+  }
+  return await WrapRequestHandler(context, options[method]);
+};
+export {
+  onRequest
+};
