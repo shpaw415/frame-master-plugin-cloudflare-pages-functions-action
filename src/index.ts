@@ -18,6 +18,38 @@ export type CloudFlareWorkerActionPluginOptions = {
 };
 const FUNCTION_DIR = "functions";
 
+function removeDuplicateExports(moduleContent: string) {
+  const exportRegex = /export\s*\{([^}]*)\}\s*;?/g;
+  const moduleData: { exports: string[] } = {
+    exports: [],
+  };
+
+  let match;
+  while ((match = exportRegex.exec(moduleContent)) !== null) {
+    const exportsList = match[1]!
+      .split(",")
+      .map((exp) => exp.trim())
+      .filter((exp) => exp.length > 0);
+    moduleData.exports.push(...exportsList);
+  }
+
+  // Remove duplicate exports
+  moduleData.exports = Array.from(new Set(moduleData.exports));
+
+  // Remove all export { ... } statements (including multiline)
+  const cleanedContent = moduleContent.replace(/export\s*\{[^}]*\}\s*;?/g, "");
+
+  // Add a single export statement with all exports from moduleData
+  if (moduleData.exports.length > 0) {
+    return (
+      cleanedContent.trimEnd() +
+      `\nexport { ${moduleData.exports.join(", ")} };\n`
+    );
+  }
+
+  return cleanedContent;
+}
+
 function wrapWithCloudFlareEventHandler(
   moduleContent: string,
   miniflareScript: string
@@ -135,6 +167,9 @@ export default function createCloudFlareWorkerActionPlugin(
           filter: actionBasePathRegex,
         },
         async (args) => {
+          if (args.path.match(/.*_middleware\.(js|ts)$/)) {
+            return;
+          }
           return {
             contents: wrapWithCloudFlareEventHandler(
               await Bun.file(args.path).text(),
@@ -147,20 +182,42 @@ export default function createCloudFlareWorkerActionPlugin(
     },
   };
 
-  const makeDevBuild = (entryPoint: string) => {
-    const pathWithExtArray = entryPoint.split(actionBasePath).pop()!.split("/");
-    pathWithExtArray.pop();
-    const outPath = pathWithExtArray.join("/");
-    return Bun.build({
-      outdir: join(FUNCTION_DIR, outPath),
-      entrypoints: [entryPoint],
-      plugins: entryPoint.match(/.*_middleware\.(js|ts)$/) ? [] : [devPlugin],
+  const makeDevBuild = async (entryPoint: string[]) => {
+    const res = await Bun.build({
+      outdir: join(FUNCTION_DIR),
+      entrypoints: [...entryPoint],
+      plugins: [devPlugin],
       splitting: false,
-      minify: {
-        keepNames: true,
+      sourcemap: false,
+      root: actionBasePath,
+      minify: false
+        ? {
+            keepNames: false,
+            identifiers: false,
+            whitespace: true,
+            syntax: true,
+          }
+        : false,
+      naming: {
+        entry: "[dir]/[name].[ext]",
       },
     });
+
+    /*await Promise.all(
+      res.outputs
+        .filter((out) => out.type.includes("text/javascript"))
+        .map(
+          async (output) =>
+            await Bun.write(
+              output.path,
+              removeDuplicateExports(await output.text())
+            )
+        )
+    );*/
+
+    return res;
   };
+
   const createRouteMatcher = () =>
     new Bun.FileSystemRouter({
       dir: actionBasePath,
@@ -184,7 +241,7 @@ export default function createCloudFlareWorkerActionPlugin(
       if (!absolutePath.startsWith(actionBasePath)) return;
       await mkdir(FUNCTION_DIR, { recursive: true });
       routeMatcher = createRouteMatcher();
-      await makeDevBuild(absolutePath);
+      await makeDevBuild([absolutePath]);
 
       console.log(`Cloudflare Worker Action - File ${path} rebuilt`);
     },
@@ -199,12 +256,11 @@ export default function createCloudFlareWorkerActionPlugin(
         await mkdir(FUNCTION_DIR, { recursive: true });
         routeMatcher = createRouteMatcher();
         await Promise.all(
-          Object.values(routeMatcher.routes).map((filePath) =>
-            makeDevBuild(filePath)
-          )
+          Object.values(routeMatcher.routes)
+            .map((p) => [p])
+            .map(makeDevBuild)
         );
-      },
-      dev_main() {
+
         if (process.env.BUILD_MODE) return;
         const outdir =
           getBuilder()?.getConfig()?.outdir || ".frame-master/build";
