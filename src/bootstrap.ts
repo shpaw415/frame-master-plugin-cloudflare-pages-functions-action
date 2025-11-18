@@ -101,7 +101,7 @@ async function makeActionRequest(
 type ServerActionDataTypeHeader = "json" | "file" | "blob" | "response";
 
 async function ParseServerActionResponse(response: Response) {
-  if (!response.ok)
+  if (!response.ok && response.headers.get("datatype") !== "response")
     throw new Error(
       `error when Calling worker action ${response.url}: ${response.statusText}`
     );
