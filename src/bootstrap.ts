@@ -90,7 +90,12 @@ async function makeActionRequest(
 
   const res = await fetch(pathname, {
     method,
-    body: props.length > 0 ? InitActionData(...props) : new FormData(),
+    body:
+      props.length > 0
+        ? InitActionData(...props)
+        : ["GET", "HEAD"].includes(method)
+        ? undefined
+        : new FormData(),
     headers: {
       "x-server-action": "true",
     },
