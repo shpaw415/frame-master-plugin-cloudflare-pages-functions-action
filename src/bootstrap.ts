@@ -101,12 +101,15 @@ async function makeActionRequest(
 type ServerActionDataTypeHeader = "json" | "file" | "blob" | "response";
 
 async function ParseServerActionResponse(response: Response) {
-  if (!response.ok)
+  const dataType = response.headers.get(
+    "datatype"
+  ) as ServerActionDataTypeHeader;
+  if (!response.ok && dataType !== "response")
     throw new Error(
       `error when Calling worker action ${response.url}: ${response.statusText}`
     );
 
-  switch (response.headers.get("datatype") as ServerActionDataTypeHeader) {
+  switch (dataType) {
     case "json":
       const props = (await response.json()) as { props: any };
       return props;
