@@ -88,16 +88,20 @@ async function makeActionRequest(
     }
   }
 
+  const mockFormData: { body?: FormData; headers: HeadersInit } =
+    ["GET", "HEAD"].includes(method) === false && props.length == 0
+      ? {
+          body: new FormData(),
+          headers: { "content-type": "multipart/form-data" },
+        }
+      : { body: undefined, headers: {} };
+
   const res = await fetch(pathname, {
     method,
-    body:
-      props.length > 0
-        ? InitActionData(...props)
-        : ["GET", "HEAD"].includes(method)
-        ? undefined
-        : new FormData(),
+    body: props.length > 0 ? InitActionData(...props) : mockFormData.body,
     headers: {
       "x-server-action": "true",
+      ...mockFormData.headers,
     },
   });
   return await ParseServerActionResponse(res);
