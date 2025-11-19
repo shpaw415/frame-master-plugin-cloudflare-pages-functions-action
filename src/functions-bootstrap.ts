@@ -42,12 +42,13 @@ export default async function WrapRequestHandler(
   if (!isServerAction) {
     return new Response("Not Found", { status: 404 }) as unknown as CFResponse;
   }
-
   const parsedData =
     context.request.method === "GET" || context.request.method === "HEAD"
       ? paramsFromURL(new URL(context.request.url))
       : parseData(
-          context.request.body ? await context.request.formData() : undefined
+          context.request.headers.get("content-type")
+            ? await context.request.formData()
+            : undefined
         );
 
   const missingProps = endpoint.length - parsedData.length;

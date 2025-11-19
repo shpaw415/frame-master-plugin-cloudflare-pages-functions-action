@@ -27,7 +27,7 @@ async function WrapRequestHandler(context, endpoint) {
   if (!isServerAction) {
     return new Response("Not Found", { status: 404 });
   }
-  const parsedData = context.request.method === "GET" || context.request.method === "HEAD" ? paramsFromURL(new URL(context.request.url)) : parseData(context.request.body ? await context.request.formData() : undefined);
+  const parsedData = context.request.method === "GET" || context.request.method === "HEAD" ? paramsFromURL(new URL(context.request.url)) : parseData(context.request.headers.get("content-type") ? await context.request.formData() : undefined);
   const missingProps = endpoint.length - parsedData.length;
   for (let i = 0;i < missingProps; i++) {
     parsedData.push(undefined);
