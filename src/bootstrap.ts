@@ -88,20 +88,11 @@ async function makeActionRequest(
     }
   }
 
-  const mockFormData: { body?: FormData; headers: HeadersInit } =
-    ["GET", "HEAD"].includes(method) === false && props.length == 0
-      ? {
-          body: new FormData(),
-          headers: { "content-type": "multipart/form-data" },
-        }
-      : { body: undefined, headers: {} };
-
   const res = await fetch(pathname, {
     method,
-    body: props.length > 0 ? InitActionData(...props) : mockFormData.body,
+    body: props.length > 0 ? InitActionData(...props) : undefined,
     headers: {
       "x-server-action": "true",
-      ...mockFormData.headers,
     },
   });
   return await ParseServerActionResponse(res);
@@ -110,7 +101,7 @@ async function makeActionRequest(
 type ServerActionDataTypeHeader = "json" | "file" | "blob" | "response";
 
 async function ParseServerActionResponse(response: Response) {
-  if (!response.ok && response.headers.get("datatype") !== "response")
+  if (!response.ok)
     throw new Error(
       `error when Calling worker action ${response.url}: ${response.statusText}`
     );

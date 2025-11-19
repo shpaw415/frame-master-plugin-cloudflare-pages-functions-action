@@ -6,8 +6,9 @@ import type {
 
 type Metods = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS";
 
-function parseData(formData: FormData) {
+function parseData(formData?: FormData) {
   const propsArray: Array<Array<File> | File | string | {} | FormData> = [];
+  if (!formData) return propsArray;
   const batchsIDs: string[] = [];
   for (const [key, value] of Array.from(formData.entries())) {
     if (key.startsWith("FILE_")) propsArray.push(value as unknown as File);
@@ -45,7 +46,9 @@ export default async function WrapRequestHandler(
   const parsedData =
     context.request.method === "GET" || context.request.method === "HEAD"
       ? paramsFromURL(new URL(context.request.url))
-      : parseData(await context.request.formData());
+      : parseData(
+          context.request.body ? await context.request.formData() : undefined
+        );
 
   const missingProps = endpoint.length - parsedData.length;
   for (let i = 0; i < missingProps; i++) {
