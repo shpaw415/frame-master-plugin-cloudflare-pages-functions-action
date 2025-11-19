@@ -332,6 +332,8 @@ export default function createCloudFlareWorkerActionPlugin(
               status: res.status,
               headers: newHeaders,
             })
+            .preventGlobalValuesInjection()
+            .preventRewrite()
             .sendNow();
           return;
         }
