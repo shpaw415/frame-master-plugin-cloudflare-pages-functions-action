@@ -206,6 +206,7 @@ export default function createCloudFlareWorkerActionPlugin(
         serverPort.toString(),
       ],
       stdout: "pipe",
+      stdin: "ignore",
     });
 
     process.on("SIGINT", (sig) => {
@@ -229,14 +230,8 @@ export default function createCloudFlareWorkerActionPlugin(
       for await (const handle of proc.stdout) {
         const original_str = new TextDecoder().decode(handle);
         console.log(original_str);
-        if (
-          Bun.stripANSI(original_str).startsWith("[wrangler:info] Ready on")
-        ) {
-          console.log(
-            `[${cloudflareActionPluginDisplayName}] Wrangler dev server is ready`
-          );
+        if (Bun.stripANSI(original_str).startsWith("[wrangler:info] Ready on"))
           resolve(true);
-        }
       }
     });
 
@@ -266,9 +261,16 @@ export default function createCloudFlareWorkerActionPlugin(
     },
     fileSystemWatchDir: [actionBasePath],
     async onFileSystemChange(ev, path, absolutePath) {
+      console.log(`Cloudflare Worker Action - File change detected:`, {
+        ev,
+        path,
+        absolutePath,
+      });
+
       if (!absolutePath.startsWith(actionBasePath)) return;
       await mkdir(FUNCTION_DIR, { recursive: true });
       routeMatcher = createRouteMatcher();
+      directiveToolSingleton.clearPaths();
       await makeDevBuild([absolutePath]);
 
       console.log(`Cloudflare Worker Action - File ${path} rebuilt`);
@@ -290,11 +292,18 @@ export default function createCloudFlareWorkerActionPlugin(
       );
     },
     serverStart: {
-      main() {
+      dev_main() {
         if (global.WRANGLER_PROCESS && !global.WRANGLER_PROCESS.killed) return;
         const proc = spawnWrangler();
+        console.log(
+          `[${cloudflareActionPluginDisplayName}] Starting Wrangler...`
+        );
         global.WRANGLER_PROCESS = proc.proc;
-        return proc.isReady;
+        return proc.isReady.then(() =>
+          console.log(
+            `[${cloudflareActionPluginDisplayName}] Wrangler dev server is ready`
+          )
+        );
       },
     },
     router: {
