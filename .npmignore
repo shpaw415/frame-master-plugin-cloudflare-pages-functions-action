@@ -1,1 +1,5 @@
 test-project
+.wrangler
+.vscode
+.github
+release-notes
