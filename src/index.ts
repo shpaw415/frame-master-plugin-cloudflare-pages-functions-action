@@ -1,9 +1,17 @@
-import { type FrameMasterPlugin } from "frame-master/plugin";
+import {
+  directiveToolSingleton,
+  type FrameMasterPlugin,
+} from "frame-master/plugin";
 import PackageJson from "../package.json";
 import { join } from "path";
 import { mkdir } from "fs/promises";
 import { getBuilder } from "frame-master/build";
 import { rm } from "fs/promises";
+import { verboseLog } from "frame-master/utils";
+
+declare global {
+  var WRANGLER_PROCESS: Bun.Subprocess;
+}
 
 export type CloudFlareWorkerActionPluginOptions = {
   actionBasePath: string;
@@ -17,38 +25,7 @@ export type CloudFlareWorkerActionPluginOptions = {
   outDir: string;
 };
 const FUNCTION_DIR = "functions";
-
-function removeDuplicateExports(moduleContent: string) {
-  const exportRegex = /export\s*\{([^}]*)\}\s*;?/g;
-  const moduleData: { exports: string[] } = {
-    exports: [],
-  };
-
-  let match;
-  while ((match = exportRegex.exec(moduleContent)) !== null) {
-    const exportsList = match[1]!
-      .split(",")
-      .map((exp) => exp.trim())
-      .filter((exp) => exp.length > 0);
-    moduleData.exports.push(...exportsList);
-  }
-
-  // Remove duplicate exports
-  moduleData.exports = Array.from(new Set(moduleData.exports));
-
-  // Remove all export { ... } statements (including multiline)
-  const cleanedContent = moduleContent.replace(/export\s*\{[^}]*\}\s*;?/g, "");
-
-  // Add a single export statement with all exports from moduleData
-  if (moduleData.exports.length > 0) {
-    return (
-      cleanedContent.trimEnd() +
-      `\nexport { ${moduleData.exports.join(", ")} };\n`
-    );
-  }
-
-  return cleanedContent;
-}
+const cloudflareActionPluginDisplayName = "Cloudflare-action-plugin";
 
 function wrapWithCloudFlareEventHandler(
   moduleContent: string,
@@ -167,8 +144,14 @@ export default function createCloudFlareWorkerActionPlugin(
           filter: actionBasePathRegex,
         },
         async (args) => {
-          if (args.path.match(/.*_middleware\.(js|ts)$/)) {
-            return;
+          if (
+            args.path.match(/.*_middleware\.(js|ts)$/) ||
+            (await directiveToolSingleton.pathIs("no-action" as any, args.path))
+          ) {
+            return {
+              contents:
+                args.__chainedContents ?? (await Bun.file(args.path).text()),
+            };
           }
           return {
             contents: wrapWithCloudFlareEventHandler(
@@ -202,19 +185,6 @@ export default function createCloudFlareWorkerActionPlugin(
         entry: "[dir]/[name].[ext]",
       },
     });
-
-    /*await Promise.all(
-      res.outputs
-        .filter((out) => out.type.includes("text/javascript"))
-        .map(
-          async (output) =>
-            await Bun.write(
-              output.path,
-              removeDuplicateExports(await output.text())
-            )
-        )
-    );*/
-
     return res;
   };
 
@@ -224,13 +194,67 @@ export default function createCloudFlareWorkerActionPlugin(
       style: "nextjs",
     });
 
+  const spawnWrangler = () => {
+    const outdir = getBuilder()?.getConfig()?.outdir || ".frame-master/build";
+    const proc = Bun.spawn({
+      cmd: [
+        "bunx",
+        "wrangler",
+        "pages",
+        "dev",
+        outdir,
+        "--port",
+        serverPort.toString(),
+      ],
+      stdout: "pipe",
+      stdin: "ignore",
+    });
+
+    process.on("SIGINT", (sig) => {
+      proc.kill(sig);
+      process.exit();
+    });
+    process.on("exit", (code) => {
+      proc.kill();
+      process.exit(code);
+    });
+    process.on("SIGTERM", (sig) => {
+      proc.kill(sig);
+      process.exit();
+    });
+    process.on("SIGHUP", (sig) => {
+      proc.kill(sig);
+      process.exit();
+    });
+
+    const isReady = new Promise(async (resolve, reject) => {
+      for await (const handle of proc.stdout) {
+        const original_str = new TextDecoder().decode(handle);
+        console.log(original_str);
+        if (Bun.stripANSI(original_str).startsWith("[wrangler:info] Ready on"))
+          resolve(true);
+      }
+    });
+
+    return { proc, isReady };
+  };
+
   return {
     name: "frame-master-plugin-cloudflare-worker-action",
     version: PackageJson.version,
     priority: -1,
     requirement: {
-      frameMasterVersion: "^2.0.4",
+      frameMasterVersion: PackageJson.peerDependencies["frame-master"],
     },
+
+    directives: [
+      {
+        name: "no-action",
+        regex:
+          /^(?:\s*(?:\/\/.*?\n|\s)*)?['"]no[-\s]action['"];?\s*(?:\/\/.*)?(?:\r?\n|$)/m,
+      },
+    ],
+
     build: {
       buildConfig: async () => ({
         ...(await createConfig()),
@@ -241,61 +265,39 @@ export default function createCloudFlareWorkerActionPlugin(
       if (!absolutePath.startsWith(actionBasePath)) return;
       await mkdir(FUNCTION_DIR, { recursive: true });
       routeMatcher = createRouteMatcher();
+      directiveToolSingleton.clearPaths();
       await makeDevBuild([absolutePath]);
+      verboseLog(`Cloudflare Worker Action - File ${path} rebuilt`);
+    },
 
-      console.log(`Cloudflare Worker Action - File ${path} rebuilt`);
+    async createContext() {
+      transpiledCloudFlareScript = await Bun.file(
+        join(__dirname, "..", "dist", "dev", "miniflare-script.js")
+      ).text();
+      try {
+        await rm(FUNCTION_DIR, { recursive: true, force: true });
+      } catch {}
+      await mkdir(FUNCTION_DIR, { recursive: true });
+      routeMatcher = createRouteMatcher();
+      await Promise.all(
+        Object.values(routeMatcher.routes)
+          .map((p) => [p])
+          .map(makeDevBuild)
+      );
     },
     serverStart: {
-      async main() {
-        transpiledCloudFlareScript = await Bun.file(
-          join(__dirname, "..", "dist", "dev", "miniflare-script.js")
-        ).text();
-        try {
-          await rm(FUNCTION_DIR, { recursive: true, force: true });
-        } catch {}
-        await mkdir(FUNCTION_DIR, { recursive: true });
-        routeMatcher = createRouteMatcher();
-        await Promise.all(
-          Object.values(routeMatcher.routes)
-            .map((p) => [p])
-            .map(makeDevBuild)
+      dev_main() {
+        if (global.WRANGLER_PROCESS && !global.WRANGLER_PROCESS.killed) return;
+        const proc = spawnWrangler();
+        console.log(
+          `[${cloudflareActionPluginDisplayName}] Starting Wrangler...`
         );
-
-        if (process.env.BUILD_MODE) return;
-        const outdir =
-          getBuilder()?.getConfig()?.outdir || ".frame-master/build";
-        const startWrangler = async () => {
-          const proc = Bun.spawn({
-            cmd: [
-              "bunx",
-              "wrangler",
-              "pages",
-              "dev",
-              outdir,
-              "--port",
-              serverPort.toString(),
-            ],
-            stdout: "inherit",
-          });
-
-          process.on("SIGINT", (sig) => {
-            proc.kill(sig);
-            process.exit();
-          });
-          process.on("exit", (code) => {
-            proc.kill();
-            process.exit(code);
-          });
-          process.on("SIGTERM", (sig) => {
-            proc.kill(sig);
-            process.exit();
-          });
-          process.on("SIGHUP", (sig) => {
-            proc.kill(sig);
-            process.exit();
-          });
-        };
-        startWrangler();
+        global.WRANGLER_PROCESS = proc.proc;
+        return proc.isReady.then(() =>
+          console.log(
+            `[${cloudflareActionPluginDisplayName}] Wrangler dev server is ready`
+          )
+        );
       },
     },
     router: {
