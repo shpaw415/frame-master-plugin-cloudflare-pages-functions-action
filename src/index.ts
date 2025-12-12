@@ -7,6 +7,7 @@ import { join } from "path";
 import { mkdir } from "fs/promises";
 import { getBuilder } from "frame-master/build";
 import { rm } from "fs/promises";
+import { verboseLog } from "frame-master/utils";
 
 declare global {
   var WRANGLER_PROCESS: Bun.Subprocess;
@@ -261,19 +262,12 @@ export default function createCloudFlareWorkerActionPlugin(
     },
     fileSystemWatchDir: [actionBasePath],
     async onFileSystemChange(ev, path, absolutePath) {
-      console.log(`Cloudflare Worker Action - File change detected:`, {
-        ev,
-        path,
-        absolutePath,
-      });
-
       if (!absolutePath.startsWith(actionBasePath)) return;
       await mkdir(FUNCTION_DIR, { recursive: true });
       routeMatcher = createRouteMatcher();
       directiveToolSingleton.clearPaths();
       await makeDevBuild([absolutePath]);
-
-      console.log(`Cloudflare Worker Action - File ${path} rebuilt`);
+      verboseLog(`Cloudflare Worker Action - File ${path} rebuilt`);
     },
 
     async createContext() {
