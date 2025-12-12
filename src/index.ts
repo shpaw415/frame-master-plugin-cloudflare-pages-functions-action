@@ -1,4 +1,7 @@
-import { type FrameMasterPlugin } from "frame-master/plugin";
+import {
+  directiveToolSingleton,
+  type FrameMasterPlugin,
+} from "frame-master/plugin";
 import PackageJson from "../package.json";
 import { join } from "path";
 import { mkdir } from "fs/promises";
@@ -17,38 +20,6 @@ export type CloudFlareWorkerActionPluginOptions = {
   outDir: string;
 };
 const FUNCTION_DIR = "functions";
-
-function removeDuplicateExports(moduleContent: string) {
-  const exportRegex = /export\s*\{([^}]*)\}\s*;?/g;
-  const moduleData: { exports: string[] } = {
-    exports: [],
-  };
-
-  let match;
-  while ((match = exportRegex.exec(moduleContent)) !== null) {
-    const exportsList = match[1]!
-      .split(",")
-      .map((exp) => exp.trim())
-      .filter((exp) => exp.length > 0);
-    moduleData.exports.push(...exportsList);
-  }
-
-  // Remove duplicate exports
-  moduleData.exports = Array.from(new Set(moduleData.exports));
-
-  // Remove all export { ... } statements (including multiline)
-  const cleanedContent = moduleContent.replace(/export\s*\{[^}]*\}\s*;?/g, "");
-
-  // Add a single export statement with all exports from moduleData
-  if (moduleData.exports.length > 0) {
-    return (
-      cleanedContent.trimEnd() +
-      `\nexport { ${moduleData.exports.join(", ")} };\n`
-    );
-  }
-
-  return cleanedContent;
-}
 
 function wrapWithCloudFlareEventHandler(
   moduleContent: string,
@@ -167,8 +138,14 @@ export default function createCloudFlareWorkerActionPlugin(
           filter: actionBasePathRegex,
         },
         async (args) => {
-          if (args.path.match(/.*_middleware\.(js|ts)$/)) {
-            return;
+          if (
+            args.path.match(/.*_middleware\.(js|ts)$/) ||
+            (await directiveToolSingleton.pathIs("no-action" as any, args.path))
+          ) {
+            return {
+              contents:
+                args.__chainedContents ?? (await Bun.file(args.path).text()),
+            };
           }
           return {
             contents: wrapWithCloudFlareEventHandler(
@@ -202,19 +179,6 @@ export default function createCloudFlareWorkerActionPlugin(
         entry: "[dir]/[name].[ext]",
       },
     });
-
-    /*await Promise.all(
-      res.outputs
-        .filter((out) => out.type.includes("text/javascript"))
-        .map(
-          async (output) =>
-            await Bun.write(
-              output.path,
-              removeDuplicateExports(await output.text())
-            )
-        )
-    );*/
-
     return res;
   };
 
@@ -229,8 +193,17 @@ export default function createCloudFlareWorkerActionPlugin(
     version: PackageJson.version,
     priority: -1,
     requirement: {
-      frameMasterVersion: "^2.0.4",
+      frameMasterVersion: PackageJson.peerDependencies["frame-master"],
     },
+
+    directives: [
+      {
+        name: "no-action",
+        regex:
+          /^(?:\s*(?:\/\/.*?\n|\s)*)?['"]no[-\s]action['"];?\s*(?:\/\/.*)?(?:\r?\n|$)/m,
+      },
+    ],
+
     build: {
       buildConfig: async () => ({
         ...(await createConfig()),

@@ -232,6 +232,20 @@ const file = await GET();
 const url = URL.createObjectURL(file);
 ```
 
+### Bypass Plugin feature
+
+since 0.2.0 `no-action` directive can be used to bypass the Plugin behaviors and use the file as a normal function page
+
+```typescript
+// actions/index.ts
+"no-action";
+
+onRequestGet(ctx: EventContext) {
+  // can be called as a normal API
+}
+
+```
+
 ### File Organization
 
 Actions follow a Next.js-style file-based routing:

@@ -8,9 +8,9 @@
     "@cloudflare/workers-types": "^4.20251109.0"
   },
   "peerDependencies": {
+    "npm": "11.6.2",
     "typescript": "^5.9.3",
-    "frame-master": "^2.0.5",
-    "npm": "11.6.2"
+    "frame-master": ">=2.0.4 <4.0.0"
   },
   "exports": {
     ".": "./src/index.ts",
