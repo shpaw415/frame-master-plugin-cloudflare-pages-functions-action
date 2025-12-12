@@ -20,6 +20,7 @@ export type CloudFlareWorkerActionPluginOptions = {
   outDir: string;
 };
 const FUNCTION_DIR = "functions";
+const WRANGLER_PROCESS: Bun.Subprocess | null = null;
 
 function wrapWithCloudFlareEventHandler(
   moduleContent: string,
@@ -188,6 +189,54 @@ export default function createCloudFlareWorkerActionPlugin(
       style: "nextjs",
     });
 
+  const spawnWrangler = () => {
+    const outdir = getBuilder()?.getConfig()?.outdir || ".frame-master/build";
+    const proc = Bun.spawn({
+      cmd: [
+        "bunx",
+        "wrangler",
+        "pages",
+        "dev",
+        outdir,
+        "--port",
+        serverPort.toString(),
+      ],
+      stdout: "pipe",
+    });
+
+    process.on("SIGINT", (sig) => {
+      proc.kill(sig);
+      process.exit();
+    });
+    process.on("exit", (code) => {
+      proc.kill();
+      process.exit(code);
+    });
+    process.on("SIGTERM", (sig) => {
+      proc.kill(sig);
+      process.exit();
+    });
+    process.on("SIGHUP", (sig) => {
+      proc.kill(sig);
+      process.exit();
+    });
+
+    const isReady = new Promise(async (resolve, reject) => {
+      for await (const handle of proc.stdout) {
+        const original_str = new TextDecoder().decode(handle);
+        console.log(original_str);
+        console.log("ANSI STRIPPED:", Bun.stripANSI(original_str));
+        if (
+          Bun.stripANSI(original_str).startsWith("[wrangler:info] Ready on")
+        ) {
+          resolve(true);
+        }
+      }
+    });
+
+    return [proc, isReady];
+  };
+
   return {
     name: "frame-master-plugin-cloudflare-worker-action",
     version: PackageJson.version,
@@ -218,57 +267,25 @@ export default function createCloudFlareWorkerActionPlugin(
 
       console.log(`Cloudflare Worker Action - File ${path} rebuilt`);
     },
+
+    async createContext() {
+      transpiledCloudFlareScript = await Bun.file(
+        join(__dirname, "..", "dist", "dev", "miniflare-script.js")
+      ).text();
+      try {
+        await rm(FUNCTION_DIR, { recursive: true, force: true });
+      } catch {}
+      await mkdir(FUNCTION_DIR, { recursive: true });
+      routeMatcher = createRouteMatcher();
+      await Promise.all(
+        Object.values(routeMatcher.routes)
+          .map((p) => [p])
+          .map(makeDevBuild)
+      );
+    },
     serverStart: {
       async main() {
-        transpiledCloudFlareScript = await Bun.file(
-          join(__dirname, "..", "dist", "dev", "miniflare-script.js")
-        ).text();
-        try {
-          await rm(FUNCTION_DIR, { recursive: true, force: true });
-        } catch {}
-        await mkdir(FUNCTION_DIR, { recursive: true });
-        routeMatcher = createRouteMatcher();
-        await Promise.all(
-          Object.values(routeMatcher.routes)
-            .map((p) => [p])
-            .map(makeDevBuild)
-        );
-
-        if (process.env.BUILD_MODE) return;
-        const outdir =
-          getBuilder()?.getConfig()?.outdir || ".frame-master/build";
-        const startWrangler = async () => {
-          const proc = Bun.spawn({
-            cmd: [
-              "bunx",
-              "wrangler",
-              "pages",
-              "dev",
-              outdir,
-              "--port",
-              serverPort.toString(),
-            ],
-            stdout: "inherit",
-          });
-
-          process.on("SIGINT", (sig) => {
-            proc.kill(sig);
-            process.exit();
-          });
-          process.on("exit", (code) => {
-            proc.kill();
-            process.exit(code);
-          });
-          process.on("SIGTERM", (sig) => {
-            proc.kill(sig);
-            process.exit();
-          });
-          process.on("SIGHUP", (sig) => {
-            proc.kill(sig);
-            process.exit();
-          });
-        };
-        startWrangler();
+        spawnWrangler();
       },
     },
     router: {
