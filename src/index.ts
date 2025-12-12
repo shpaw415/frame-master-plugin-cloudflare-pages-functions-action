@@ -8,6 +8,10 @@ import { mkdir } from "fs/promises";
 import { getBuilder } from "frame-master/build";
 import { rm } from "fs/promises";
 
+declare global {
+  var WRANGLER_PROCESS: Bun.Subprocess;
+}
+
 export type CloudFlareWorkerActionPluginOptions = {
   actionBasePath: string;
   /** Wrangler port default: 8787 */
@@ -20,7 +24,7 @@ export type CloudFlareWorkerActionPluginOptions = {
   outDir: string;
 };
 const FUNCTION_DIR = "functions";
-const WRANGLER_PROCESS: Bun.Subprocess | null = null;
+const cloudflareActionPluginDisplayName = "Cloudflare-action-plugin";
 
 function wrapWithCloudFlareEventHandler(
   moduleContent: string,
@@ -225,16 +229,18 @@ export default function createCloudFlareWorkerActionPlugin(
       for await (const handle of proc.stdout) {
         const original_str = new TextDecoder().decode(handle);
         console.log(original_str);
-        console.log("ANSI STRIPPED:", Bun.stripANSI(original_str));
         if (
           Bun.stripANSI(original_str).startsWith("[wrangler:info] Ready on")
         ) {
+          console.log(
+            `[${cloudflareActionPluginDisplayName}] Wrangler dev server is ready`
+          );
           resolve(true);
         }
       }
     });
 
-    return [proc, isReady];
+    return { proc, isReady };
   };
 
   return {
@@ -284,8 +290,11 @@ export default function createCloudFlareWorkerActionPlugin(
       );
     },
     serverStart: {
-      async main() {
-        spawnWrangler();
+      main() {
+        if (global.WRANGLER_PROCESS && !global.WRANGLER_PROCESS.killed) return;
+        const proc = spawnWrangler();
+        global.WRANGLER_PROCESS = proc.proc;
+        return proc.isReady;
       },
     },
     router: {

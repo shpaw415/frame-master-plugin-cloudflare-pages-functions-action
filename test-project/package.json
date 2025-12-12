@@ -7,11 +7,11 @@
     "@types/bun": "latest"
   },
   "peerDependencies": {
-    "typescript": "^5"
+    "typescript": "^5.9.3"
   },
   "dependencies": {
     "frame-master": "^3.0.2",
-    "frame-master-plugin-cloudflare-pages-functions-action": "https://github.com/shpaw415/frame-master-plugin-cloudflare-pages-functions-action.git#8713b56"
+    "frame-master-plugin-cloudflare-pages-functions-action": "https://github.com/shpaw415/frame-master-plugin-cloudflare-pages-functions-action.git#bce9ce9"
   },
   "scripts": {
     "dev": "NODE_ENV=development bun --hot frame-master dev",

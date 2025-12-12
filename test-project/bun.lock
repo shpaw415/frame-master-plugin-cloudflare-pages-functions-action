@@ -6,7 +6,7 @@
       "name": "test-project",
       "dependencies": {
         "frame-master": "^3.0.2",
-        "frame-master-plugin-cloudflare-pages-functions-action": "https://github.com/shpaw415/frame-master-plugin-cloudflare-pages-functions-action.git#8713b56",
+        "frame-master-plugin-cloudflare-pages-functions-action": "https://github.com/shpaw415/frame-master-plugin-cloudflare-pages-functions-action.git#bce9ce9",
       },
       "devDependencies": {
         "@types/bun": "latest",
@@ -35,7 +35,7 @@
 
     "frame-master": ["frame-master@3.0.2", "", { "dependencies": { "@shpaw415/webtoken": "^2.0.0", "chalk": "^5.6.2", "commander": "^14.0.2", "prompts": "^2.4.2", "react": "^19.0.0", "react-dom": "^19.0.0", "tar": "^7.5.2" }, "peerDependencies": { "typescript": "^5.9.3" }, "bin": { "frame-master": "bin/index.ts" } }, "sha512-txYzZAK/E7J7mXnwvCvpZLs1iSur8PnYqeP7wXo9OUCWjCDzvGG70TS0ilfKtttlAueDJekMgO4ycUSQ7q42EA=="],
 
-    "frame-master-plugin-cloudflare-pages-functions-action": ["frame-master-plugin-cloudflare-pages-functions-action@github:shpaw415/frame-master-plugin-cloudflare-pages-functions-action#8713b56", { "peerDependencies": { "frame-master": ">=2.0.4 <4.0.0", "npm": "11.6.2", "typescript": "^5.9.3" } }, "shpaw415-frame-master-plugin-cloudflare-pages-functions-action-8713b56"],
+    "frame-master-plugin-cloudflare-pages-functions-action": ["frame-master-plugin-cloudflare-pages-functions-action@github:shpaw415/frame-master-plugin-cloudflare-pages-functions-action#bce9ce9", { "peerDependencies": { "frame-master": "^3.0.2", "npm": "11.6.2", "typescript": "^5.9.3" } }, "shpaw415-frame-master-plugin-cloudflare-pages-functions-action-bce9ce9"],
 
     "kleur": ["kleur@3.0.3", "", {}, "sha512-eTIzlVOSUR+JxdDFepEYcBMtZ9Qqdef+rnzWdRZuMbOywu5tO2w2N7rqjoANZ5k9vywhL6Br1VRjUIgTQx4E8w=="],
 
