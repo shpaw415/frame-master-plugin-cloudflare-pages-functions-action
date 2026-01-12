@@ -170,7 +170,7 @@ export default function createCloudFlareWorkerActionPlugin(
       outdir: join(FUNCTION_DIR),
       entrypoints: [...entryPoint],
       plugins: [devPlugin],
-      splitting: false,
+      splitting: true,
       sourcemap: false,
       root: actionBasePath,
       minify: false
@@ -279,11 +279,7 @@ export default function createCloudFlareWorkerActionPlugin(
       } catch {}
       await mkdir(FUNCTION_DIR, { recursive: true });
       routeMatcher = createRouteMatcher();
-      await Promise.all(
-        Object.values(routeMatcher.routes)
-          .map((p) => [p])
-          .map(makeDevBuild)
-      );
+      await makeDevBuild(Object.values(routeMatcher.routes));
     },
     serverStart: {
       dev_main() {
