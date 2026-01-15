@@ -13,6 +13,7 @@ A Frame Master plugin that brings **type-safe server actions** to Cloudflare Pag
 - 📦 **Multiple Data Types** - Support for JSON, Files, FormData, and Blobs
 - 🔄 **Hot Reload** - Automatic rebuilds during development
 - 🎯 **Simple API** - Call server functions like any async function
+- ⚡ **Optimized Builds** - Automatic code splitting to stay within Cloudflare's 20MB function size limit
 
 ## 📦 Installation
 
