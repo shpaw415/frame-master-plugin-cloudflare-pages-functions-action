@@ -240,7 +240,7 @@ export default function createCloudFlareWorkerActionPlugin(
   };
 
   return {
-    name: "frame-master-plugin-cloudflare-worker-action",
+    name: PackageJson.name,
     version: PackageJson.version,
     priority: -1,
     requirement: {
