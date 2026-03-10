@@ -26,7 +26,7 @@ export type CloudFlareWorkerActionPluginOptions = {
   /**
    * Custom fetch implementation for making requests to the worker.
    */
-  customFetch?: string;
+  customFetch?: string | typeof fetch;
 };
 const FUNCTION_DIR = "functions";
 const cloudflareActionPluginDisplayName = "Cloudflare-action-plugin";
@@ -120,13 +120,16 @@ export default function createCloudFlareWorkerActionPlugin(
               if (clientPath.endsWith("/index")) {
                 clientPath = clientPath.slice(0, -"/index".length);
               }
-
+              const fetcherString =
+                (typeof props.customFetch === "function"
+                  ? props.customFetch.toString()
+                  : props.customFetch) ?? "fetch";
               return {
                 contents: [
                   `import makeActionRequest from "cloudflare-worker-action/bootstrap";`,
                   ...exports.map(
                     (exp) =>
-                      `export const ${exp} = (...args) => makeActionRequest(args, "${clientPath}","${exp}", ${props.customFetch ? props.customFetch : "undefined"});`,
+                      `export const ${exp} = (...args) => makeActionRequest(args, "${clientPath}","${exp}", ${fetcherString});`,
                   ),
                 ].join("\n"),
                 loader: "js",
@@ -232,7 +235,7 @@ export default function createCloudFlareWorkerActionPlugin(
     });
 
     const isReady = new Promise(async (resolve, reject) => {
-      for await (const handle of proc.stdout) {
+      for await (const handle of proc.stdout as any) {
         const original_str = new TextDecoder().decode(handle);
         console.log(original_str);
         if (Bun.stripANSI(original_str).startsWith("[wrangler:info] Ready on"))

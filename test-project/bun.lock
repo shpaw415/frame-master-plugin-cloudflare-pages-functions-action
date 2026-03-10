@@ -187,7 +187,7 @@
 
     "frame-master": ["frame-master@3.1.1", "", { "dependencies": { "@shpaw415/webtoken": "^2.0.0", "@types/git": "^0.0.21", "chalk": "^5.6.2", "commander": "^14.0.2", "git": "^0.1.5", "react": "^19.2.3", "react-dom": "^19.2.3", "tar": "^7.5.2" }, "peerDependencies": { "typescript": "^5.9.3" }, "bin": { "frame-master": "bin/index.ts" } }, "sha512-X6ZFF+3cgQeV+aAEdmbfO8OX12eG619rQMopT4dageEbwZ7zmNx1ckqWNadwS975GlwEC7i85eGlyAs+MC8xuQ=="],
 
-    "frame-master-plugin-cloudflare-pages-functions-action": ["frame-master-plugin-cloudflare-pages-functions-action@github:shpaw415/frame-master-plugin-cloudflare-pages-functions-action#c4ef181", { "dependencies": { "superjson": "^2.2.6" }, "peerDependencies": { "frame-master": "^3.0.2", "npm": "11.6.2", "typescript": "^5.9.3", "wrangler": "^4.54.0" } }, "shpaw415-frame-master-plugin-cloudflare-pages-functions-action-c4ef181", "sha512-i4cDyDtnAZmJ7gkSIRzbs2/vVvRzKycwOH4J75UzOa4we+KXxEPMJc1XKRISs4HarWasUr95BdagNer2MzeXvg=="],
+    "frame-master-plugin-cloudflare-pages-functions-action": ["frame-master-plugin-cloudflare-pages-functions-action@github:shpaw415/frame-master-plugin-cloudflare-pages-functions-action#5db0b47", { "dependencies": { "superjson": "^2.2.6" }, "peerDependencies": { "frame-master": "^3.0.2", "npm": "11.6.2", "typescript": "^5.9.3", "wrangler": "^4.54.0" } }, "shpaw415-frame-master-plugin-cloudflare-pages-functions-action-5db0b47", "sha512-k4Muashlmu/Dj9iRGhjDf3RTWKG6IMxHyT4BmxD35hOsp2qx3P/Z9XE04D1Pb5lNDIYpVGWi9HQMXaPTXUnpAA=="],
 
     "fsevents": ["fsevents@2.3.3", "", { "os": "darwin" }, "sha512-5xoDfX+fL7faATnagmWPpbFtwh/R77WmMMqqHGS65C3vvB0YHrgF+B1YmZ3441tMj5n63k0212XNoJwzlhffQw=="],
 
