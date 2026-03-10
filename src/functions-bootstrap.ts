@@ -3,6 +3,7 @@ import type {
   FormData,
   Response as CFResponse,
 } from "@cloudflare/workers-types";
+import superjson from "superjson";
 
 type Metods = "GET" | "POST" | "PUT" | "DELETE" | "PATCH" | "HEAD" | "OPTIONS";
 
@@ -29,13 +30,13 @@ function paramsFromURL(url: URL): Array<unknown> {
     .toArray()
     .map(([_, v]) => v);
   return params.map((param) =>
-    JSON.parse(decodeURIComponent(param))
+    JSON.parse(decodeURIComponent(param)),
   ) as Array<unknown>;
 }
 
 export default async function WrapRequestHandler(
   context: EventContext<any, any, any>,
-  endpoint: (...args: unknown[]) => unknown
+  endpoint: (...args: unknown[]) => unknown,
 ): Promise<CFResponse> {
   const isServerAction =
     context.request.headers.get("x-server-action") === "true";
@@ -48,7 +49,7 @@ export default async function WrapRequestHandler(
       : parseData(
           context.request.headers.get("content-type")
             ? await context.request.formData()
-            : undefined
+            : undefined,
         );
 
   const missingProps = endpoint.length - parsedData.length;
@@ -63,10 +64,12 @@ export default async function WrapRequestHandler(
     case "number":
     case "boolean":
     case "bigint":
-      const res = new Response(JSON.stringify(result));
-      res.headers.set("Content-Type", "application/json");
-      res.headers.set("dataType", "json");
-      return res as unknown as CFResponse;
+      return new Response(superjson.stringify(result), {
+        headers: {
+          "Content-Type": "application/json",
+          dataType: "json",
+        },
+      }) as unknown as CFResponse;
     case "undefined":
       return new Response(null, { status: 204 }) as unknown as CFResponse;
     case "object":
@@ -79,19 +82,18 @@ export default async function WrapRequestHandler(
         res.headers.set("Content-Type", result.type);
         return res as unknown as CFResponse;
       } else if (result instanceof File) {
-        const res = new Response(await result.arrayBuffer());
-        res.headers.set("dataType", "file");
-        res.headers.set("Content-Type", result.type);
-        res.headers.set(
-          "fileData",
-          JSON.stringify({
-            name: result.name,
-            lastModified: result.lastModified,
-          })
-        );
-        return res as unknown as CFResponse;
+        return new Response(await result.arrayBuffer(), {
+          headers: {
+            "Content-Type": result.type,
+            dataType: "file",
+            fileData: JSON.stringify({
+              name: result.name,
+              lastModified: result.lastModified,
+            }),
+          },
+        }) as unknown as CFResponse;
       } else {
-        return new Response(JSON.stringify(result), {
+        return new Response(superjson.stringify(result), {
           headers: { "Content-Type": "application/json", dataType: "json" },
         }) as unknown as CFResponse;
       }

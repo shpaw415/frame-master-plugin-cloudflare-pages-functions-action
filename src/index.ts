@@ -23,19 +23,23 @@ export type CloudFlareWorkerActionPluginOptions = {
    * default: buildConfig.outdir
    */
   outDir: string;
+  /**
+   * Custom fetch implementation for making requests to the worker.
+   */
+  customFetch?: string;
 };
 const FUNCTION_DIR = "functions";
 const cloudflareActionPluginDisplayName = "Cloudflare-action-plugin";
 
 function wrapWithCloudFlareEventHandler(
   moduleContent: string,
-  miniflareScript: string
+  miniflareScript: string,
 ) {
   return [moduleContent, miniflareScript].join("\n");
 }
 
 export default function createCloudFlareWorkerActionPlugin(
-  props: CloudFlareWorkerActionPluginOptions
+  props: CloudFlareWorkerActionPluginOptions,
 ): FrameMasterPlugin {
   const { actionBasePath, serverPort = 8787 } = props;
 
@@ -53,7 +57,7 @@ export default function createCloudFlareWorkerActionPlugin(
         cwd: actionBasePath,
         onlyFiles: true,
         absolute: true,
-      })
+      }),
     );
 
     const parsedFile = (
@@ -65,7 +69,7 @@ export default function createCloudFlareWorkerActionPlugin(
             filePath,
             actions: exported,
           };
-        })
+        }),
       )
     ).filter((parsed) => parsed.actions.length > 0);
 
@@ -85,7 +89,7 @@ export default function createCloudFlareWorkerActionPlugin(
                   path: join(__dirname, "bootstrap.ts"),
                   namespace: "cloudflare-client-bootstrap",
                 };
-              }
+              },
             );
             // Load bootstrap file
             build.onLoad(
@@ -95,7 +99,7 @@ export default function createCloudFlareWorkerActionPlugin(
                   contents: await Bun.file(args.path).text(),
                   loader: "ts",
                 };
-              }
+              },
             );
             // Transpile to client action
             build.onLoad({ filter: /.*/ }, async (args) => {
@@ -103,7 +107,7 @@ export default function createCloudFlareWorkerActionPlugin(
                 return;
               }
               const exports = parsedFile.find(
-                (pf) => pf.filePath === args.path
+                (pf) => pf.filePath === args.path,
               )!.actions;
 
               const clientPathArray = args.path
@@ -122,7 +126,7 @@ export default function createCloudFlareWorkerActionPlugin(
                   `import makeActionRequest from "cloudflare-worker-action/bootstrap";`,
                   ...exports.map(
                     (exp) =>
-                      `export const ${exp} = (...args) => makeActionRequest(args, "${clientPath}","${exp}");`
+                      `export const ${exp} = (...args) => makeActionRequest(args, "${clientPath}","${exp}", ${props.customFetch ? props.customFetch : "undefined"});`,
                   ),
                 ].join("\n"),
                 loader: "js",
@@ -134,7 +138,7 @@ export default function createCloudFlareWorkerActionPlugin(
     };
   }
   const actionBasePathRegex = new RegExp(
-    `${actionBasePath.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")}`
+    `${actionBasePath.replace(/[-\/\\^$*+?.()|[\]{}]/g, "\\$&")}`,
   );
   const devPlugin: Bun.BunPlugin = {
     name: "cloudflare-action-dev-plugin",
@@ -156,11 +160,11 @@ export default function createCloudFlareWorkerActionPlugin(
           return {
             contents: wrapWithCloudFlareEventHandler(
               await Bun.file(args.path).text(),
-              transpiledCloudFlareScript
+              transpiledCloudFlareScript,
             ),
             loader: "ts",
           };
-        }
+        },
       );
     },
   };
@@ -243,9 +247,6 @@ export default function createCloudFlareWorkerActionPlugin(
     name: PackageJson.name,
     version: PackageJson.version,
     priority: -1,
-    requirement: {
-      frameMasterVersion: PackageJson.peerDependencies["frame-master"],
-    },
 
     directives: [
       {
@@ -272,7 +273,7 @@ export default function createCloudFlareWorkerActionPlugin(
 
     async createContext() {
       transpiledCloudFlareScript = await Bun.file(
-        join(__dirname, "..", "dist", "dev", "miniflare-script.js")
+        join(__dirname, "..", "dist", "dev", "miniflare-script.js"),
       ).text();
       try {
         await rm(FUNCTION_DIR, { recursive: true, force: true });
@@ -286,13 +287,13 @@ export default function createCloudFlareWorkerActionPlugin(
         if (global.WRANGLER_PROCESS && !global.WRANGLER_PROCESS.killed) return;
         const proc = spawnWrangler();
         console.log(
-          `[${cloudflareActionPluginDisplayName}] Starting Wrangler...`
+          `[${cloudflareActionPluginDisplayName}] Starting Wrangler...`,
         );
         global.WRANGLER_PROCESS = proc.proc;
         return proc.isReady.then(() =>
           console.log(
-            `[${cloudflareActionPluginDisplayName}] Wrangler dev server is ready`
-          )
+            `[${cloudflareActionPluginDisplayName}] Wrangler dev server is ready`,
+          ),
         );
       },
     },
@@ -313,7 +314,7 @@ export default function createCloudFlareWorkerActionPlugin(
 
         const isBodyAllowed = !["GET", "HEAD"].includes(req.method);
         console.log(
-          `Proxying request to Cloudflare Worker Action: ${req.method} ${targetUrl}`
+          `Proxying request to Cloudflare Worker Action: ${req.method} ${targetUrl}`,
         );
         master.preventLog();
         const res = await fetch(targetUrl, {

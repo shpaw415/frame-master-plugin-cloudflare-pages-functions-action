@@ -1,6 +1,6 @@
 {
   "name": "frame-master-plugin-cloudflare-pages-functions-action",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "type": "module",
   "devDependencies": {
     "@types/bun": "latest",
@@ -11,6 +11,9 @@
     "typescript": "^5.9.3",
     "frame-master": "^3.0.2",
     "wrangler": "^4.54.0"
+  },
+  "dependencies": {
+    "superjson": "^2.2.6"
   },
   "exports": {
     ".": "./src/index.ts",

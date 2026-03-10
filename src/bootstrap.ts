@@ -1,3 +1,4 @@
+import superjson from "superjson";
 function InitActionData(
   ...props: Array<File | string | string[] | FormData | { [key: string]: any }>
 ) {
@@ -23,7 +24,7 @@ function InitActionData(
   for (const prop of props) {
     if (prop instanceof FormData) {
       throw new Error(
-        "only one prop is permitted with a FormData in a Worker Action"
+        "only one prop is permitted with a FormData in a Worker Action",
       );
     } else if (prop instanceof File) {
       const id = formatToFile();
@@ -40,7 +41,7 @@ function InitActionData(
             formData.append(id, p);
           } else {
             throw new Error(
-              "only File instances are permitted inside an array of Files in a Worker Action"
+              "only File instances are permitted inside an array of Files in a Worker Action",
             );
           }
         });
@@ -63,7 +64,8 @@ async function makeActionRequest(
     | "DELETE"
     | "PATCH"
     | "HEAD"
-    | "OPTIONS" = "POST"
+    | "OPTIONS" = "POST",
+  fetcher = fetch,
 ) {
   if (method === "GET" || method === "HEAD") {
     if (props.length > 0) {
@@ -73,11 +75,11 @@ async function makeActionRequest(
         i = i++;
         url.searchParams.append(
           `arg_${i}`,
-          encodeURIComponent(JSON.stringify(prop))
+          encodeURIComponent(JSON.stringify(prop)),
         );
       }
       pathname = url.toString();
-      const res = await fetch(pathname, {
+      const res = await fetcher(pathname, {
         method,
         headers: {
           "x-server-action": "true",
@@ -88,7 +90,7 @@ async function makeActionRequest(
     }
   }
 
-  const res = await fetch(pathname, {
+  const res = await fetcher(pathname, {
     method,
     body: props.length > 0 ? InitActionData(...props) : undefined,
     headers: {
@@ -102,23 +104,22 @@ type ServerActionDataTypeHeader = "json" | "file" | "blob" | "response";
 
 async function ParseServerActionResponse(response: Response) {
   const dataType = response.headers.get(
-    "datatype"
+    "datatype",
   ) as ServerActionDataTypeHeader;
   if (!response.ok && dataType !== "response")
     throw new Error(
-      `error when Calling worker action ${response.url}: ${response.statusText}`
+      `error when Calling worker action ${response.url}: ${response.statusText}`,
     );
 
   switch (dataType) {
     case "json":
-      const props = (await response.json()) as { props: any };
-      return props;
+      return superjson.parse(await response.text()) as { props: any };
     case "blob":
       return await response.blob();
     case "file":
       const blob = await response.blob();
       const { name, lastModified } = JSON.parse(
-        response.headers.get("fileData") || ""
+        response.headers.get("fileData") || "",
       ) as { name: string; lastModified: number };
       return new File([blob], name, {
         type: blob.type,
@@ -128,13 +129,13 @@ async function ParseServerActionResponse(response: Response) {
       return response;
     default:
       try {
-        return await response.json();
+        return await superjson.parse(await response.text());
       } catch (e) {
         throw new Error(
           `Unsupported data type returned from server action: ${response.headers.get(
-            "dataType"
+            "dataType",
           )}`,
-          { cause: e }
+          { cause: e },
         );
       }
   }
