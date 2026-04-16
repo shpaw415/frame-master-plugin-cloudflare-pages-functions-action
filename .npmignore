@@ -3,3 +3,5 @@ test-project
 .vscode
 .github
 release-notes
+bin
+.gitignore

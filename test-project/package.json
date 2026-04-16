@@ -1,22 +1,20 @@
 {
-  "name": "test-project",
-  "module": "index.ts",
-  "type": "module",
-  "private": true,
-  "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
-    "typescript": "^5.9.3"
-  },
-  "dependencies": {
-    "frame-master": "^3.0.2",
-    "frame-master-plugin-cloudflare-pages-functions-action": "https://github.com/shpaw415/frame-master-plugin-cloudflare-pages-functions-action.git#5d8544a"
-  },
-  "scripts": {
-    "dev": "NODE_ENV=development bun --hot frame-master dev",
-    "start": "NODE_ENV=production bun frame-master start",
-    "bld": "NODE_ENV=production bun frame-master build",
-    "build:dev": "NODE_ENV=development bun frame-master build"
-  }
+	"name": "test-project",
+	"module": "index.ts",
+	"type": "module",
+	"private": true,
+	"devDependencies": {
+		"@types/bun": "latest"
+	},
+	"dependencies": {
+		"frame-master": "^3.1.1",
+		"frame-master-plugin-cloudflare-pages-functions-action": ".."
+	},
+	"scripts": {
+		"dev": "NODE_ENV=development bun --hot frame-master dev",
+		"start": "NODE_ENV=production bun frame-master start",
+		"bld": "NODE_ENV=production bun frame-master build",
+		"build:dev": "NODE_ENV=development bun frame-master build",
+		"update:action": "bun update frame-master-plugin-cloudflare-pages-functions-action"
+	}
 }
