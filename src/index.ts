@@ -3,6 +3,7 @@ import { join } from "node:path";
 import { getBuilder } from "frame-master/build";
 import {
 	directiveToolSingleton,
+	type Directives,
 	type FrameMasterPlugin,
 } from "frame-master/plugin";
 import { verboseLog } from "frame-master/utils";
@@ -152,7 +153,7 @@ export default function createCloudFlareWorkerActionPlugin(
 						// Resolve bootstrap file
 						build.onResolve(
 							{ filter: /^cloudflare-worker-action\/bootstrap$/ },
-							(args) => {
+							() => {
 								return {
 									path: join(__dirname, "bootstrap.ts"),
 									namespace: "cloudflare-client-bootstrap",
@@ -223,7 +224,10 @@ export default function createCloudFlareWorkerActionPlugin(
 				async (args) => {
 					if (
 						args.path.match(/.*_middleware\.(js|ts)$/) ||
-						(await directiveToolSingleton.pathIs("no-action" as any, args.path))
+						(await directiveToolSingleton.pathIs(
+							"no-action" as Directives,
+							args.path,
+						))
 					) {
 						return {
 							contents:
@@ -328,7 +332,7 @@ export default function createCloudFlareWorkerActionPlugin(
 			}),
 		},
 		fileSystemWatchDir: [actionBasePath],
-		async onFileSystemChange(ev, path, absolutePath) {
+		async onFileSystemChange(_ev, path, absolutePath) {
 			if (!absolutePath.startsWith(actionBasePath)) return;
 			await mkdir(FUNCTION_DIR, { recursive: true });
 			routeMatcher = createRouteMatcher();
