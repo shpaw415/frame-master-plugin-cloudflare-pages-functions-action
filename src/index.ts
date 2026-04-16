@@ -110,16 +110,10 @@ export default function createCloudFlareWorkerActionPlugin(
 
 		return {
 			entrypoints: [join("cloudflare-worker-action/bootstrap")],
-			files: {
-				"/cloudflare-worker-action/bootstrap": Bun.file(
-					join(__dirname, "bootstrap.ts"),
-				),
-			},
 			plugins: [
 				{
 					name: "cloudflare-worker-action-plugin",
 					setup(build) {
-						/*
 						// Resolve bootstrap file
 						build.onResolve(
 							{ filter: /^cloudflare-worker-action\/bootstrap$/ },
@@ -129,17 +123,17 @@ export default function createCloudFlareWorkerActionPlugin(
 									namespace: "cloudflare-client-bootstrap",
 								};
 							},
-						);*/
+						);
 						// Load bootstrap file
-						///build.onLoad(
-						//	{ filter: /.*/, namespace: "cloudflare-client-bootstrap" },
-						/*	async (args) => {
+						build.onLoad(
+							{ filter: /.*/, namespace: "cloudflare-client-bootstrap" },
+							async (args) => {
 								return {
 									contents: await Bun.file(args.path).text(),
 									loader: "ts",
 								};
 							},
-						);*/
+						);
 						// Transpile to client action
 						build.onLoad({ filter: /.*/ }, async (args) => {
 							if (absoluteEntryPoints.includes(args.path) === false) {

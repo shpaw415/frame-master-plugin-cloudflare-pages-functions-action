@@ -1,6 +1,6 @@
 {
 	"compilerOptions": {
-		"lib": ["ESNext"],
+		"lib": ["ESNext", "DOM"],
 		"target": "ESNext",
 		"module": "Preserve",
 		"moduleDetection": "force",
@@ -18,7 +18,10 @@
 		"noUnusedLocals": false,
 		"noUnusedParameters": false,
 		"noPropertyAccessFromIndexSignature": false,
-		"types": ["./worker-configuration.d.ts"]
+		"types": ["./worker-configuration.d.ts"],
+		"paths": {
+			"@api/*": ["./src/action/api/*"]
+		}
 	},
 	"include": ["**/*", ".frame-master/frame-master-custom-type.d.ts"]
 }

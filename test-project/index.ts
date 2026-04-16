@@ -1,4 +1,4 @@
-import { GET } from "./src/action/action";
+import { GET } from "./src/action/api/action";
 
 GET({
 	lol: true,
