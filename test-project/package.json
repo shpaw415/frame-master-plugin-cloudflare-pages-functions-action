@@ -6,12 +6,9 @@
 	"devDependencies": {
 		"@types/bun": "latest"
 	},
-	"peerDependencies": {
-		"typescript": "^5.9.3"
-	},
 	"dependencies": {
 		"frame-master": "^3.1.1",
-		"frame-master-plugin-cloudflare-pages-functions-action": "htps://github.com/shpaw415/frame-master-plugin-cloudflare-pages-functions-action.git#fix/refactor"
+		"frame-master-plugin-cloudflare-pages-functions-action": ".."
 	},
 	"scripts": {
 		"dev": "NODE_ENV=development bun --hot frame-master dev",
