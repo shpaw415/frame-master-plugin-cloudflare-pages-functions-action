@@ -2,7 +2,7 @@
 async function GET(data) {
   console.log(data);
   return {
-    sucess: true
+    sucess: false
   };
 }
 

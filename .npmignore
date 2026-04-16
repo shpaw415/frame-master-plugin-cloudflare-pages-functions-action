@@ -4,3 +4,4 @@ test-project
 .github
 release-notes
 bin
+.gitignore
