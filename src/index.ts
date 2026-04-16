@@ -41,37 +41,6 @@ function wrapWithCloudFlareEventHandler(
 	return [moduleContent, miniflareScript].join("\n");
 }
 
-function pipeSubprocessStream(
-	stream: ReadableStream<Uint8Array> | null,
-	write: (chunk: string) => void,
-) {
-	if (!stream) return;
-
-	void (async () => {
-		const reader = stream.getReader();
-		const decoder = new TextDecoder();
-
-		try {
-			while (true) {
-				const { done, value } = await reader.read();
-				if (done) break;
-				if (!value) continue;
-
-				write(decoder.decode(value, { stream: true }));
-			}
-
-			const remaining = decoder.decode();
-			if (remaining) write(remaining);
-		} catch (error) {
-			console.error(
-				`[${cloudflareActionPluginDisplayName}] Failed to read Wrangler output: ${error}`,
-			);
-		} finally {
-			reader.releaseLock();
-		}
-	})();
-}
-
 async function waitForWranglerReady(proc: Bun.Subprocess, port: number) {
 	const readinessUrl = `http://127.0.0.1:${port}/`;
 	const timeoutAt = Date.now() + WRANGLER_READY_TIMEOUT_MS;
@@ -150,6 +119,7 @@ export default function createCloudFlareWorkerActionPlugin(
 				{
 					name: "cloudflare-worker-action-plugin",
 					setup(build) {
+						/*
 						// Resolve bootstrap file
 						build.onResolve(
 							{ filter: /^cloudflare-worker-action\/bootstrap$/ },
@@ -159,17 +129,17 @@ export default function createCloudFlareWorkerActionPlugin(
 									namespace: "cloudflare-client-bootstrap",
 								};
 							},
-						);
+						);*/
 						// Load bootstrap file
-						build.onLoad(
-							{ filter: /.*/, namespace: "cloudflare-client-bootstrap" },
-							async (args) => {
+						///build.onLoad(
+						//	{ filter: /.*/, namespace: "cloudflare-client-bootstrap" },
+						/*	async (args) => {
 								return {
 									contents: await Bun.file(args.path).text(),
 									loader: "ts",
 								};
 							},
-						);
+						);*/
 						// Transpile to client action
 						build.onLoad({ filter: /.*/ }, async (args) => {
 							if (absoluteEntryPoints.includes(args.path) === false) {
@@ -280,13 +250,10 @@ export default function createCloudFlareWorkerActionPlugin(
 				"--port",
 				serverPort.toString(),
 			],
-			stdout: "pipe",
-			stderr: "pipe",
+			stdout: "inherit",
+			stderr: "inherit",
 			stdin: "ignore",
 		});
-
-		pipeSubprocessStream(proc.stdout, (chunk) => process.stdout.write(chunk));
-		pipeSubprocessStream(proc.stderr, (chunk) => process.stderr.write(chunk));
 
 		process.on("SIGINT", (sig) => {
 			proc.kill(sig);
