@@ -223,7 +223,7 @@ export default function createCloudFlareWorkerActionPlugin(
 			);
 		}
 
-		if (builder.isBuilding()) return builder.awaitBuildFinish();
+		if (builder.isBuilding()) return;
 		else return builder.build(...entryPoint);
 	};
 
@@ -274,7 +274,6 @@ export default function createCloudFlareWorkerActionPlugin(
 
 		return { proc, isReady };
 	};
-
 	return {
 		name: PackageJson.name,
 		version: PackageJson.version,
@@ -329,7 +328,7 @@ export default function createCloudFlareWorkerActionPlugin(
 			} catch {}
 			await mkdir(FUNCTION_DIR, { recursive: true });
 			routeMatcher = createRouteMatcher();
-			await makeDevBuild(Object.values(routeMatcher.routes));
+			makeDevBuild(Object.values(routeMatcher.routes));
 		},
 		serverStart: {
 			dev_main() {

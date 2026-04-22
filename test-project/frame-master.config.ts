@@ -3,6 +3,8 @@ import { builder } from "frame-master/build";
 import type { FrameMasterPlugin } from "frame-master/plugin";
 import type { FrameMasterConfig } from "frame-master/server/types";
 import ServerAction from "../src";
+import BuildUnifier from "frame-master-plugin-build-unifier";
+
 export default {
 	HTTPServer: {
 		port: 3001,
@@ -39,22 +41,26 @@ export default {
 				},
 			},
 		},
-		ServerAction({
-			outDir: ".frame-master/build",
-			actionBasePath: "src/action",
-			customFetch: (url, init) => {
-				const header = new Headers(init?.headers);
-				header.set(
-					"x-custom-header",
-					"This is a custom header added by the custom fetch function!",
-				);
-				const modifiedInit = {
-					...init,
-					headers: header,
-				};
-				return fetch(url, modifiedInit);
-			},
-		}) as FrameMasterPlugin,
+		...BuildUnifier({
+			plugins: [
+				ServerAction({
+					outDir: ".frame-master/build",
+					actionBasePath: "src/action",
+					customFetch: (url, init) => {
+						const header = new Headers(init?.headers);
+						header.set(
+							"x-custom-header",
+							"This is a custom header added by the custom fetch function!",
+						);
+						const modifiedInit = {
+							...init,
+							headers: header,
+						};
+						return fetch(url, modifiedInit);
+					},
+				}) as FrameMasterPlugin,
+			],
+		}),
 		{
 			name: "test-plugin",
 			version: "1.0.0",
