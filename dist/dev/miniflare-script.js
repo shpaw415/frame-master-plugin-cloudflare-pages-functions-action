@@ -888,4 +888,5 @@ var onRequest = async (context) => {
 		return new Response(`Method "${method}" Not Allowed`, { status: 405 });
 	return await WrapRequestHandler(context, options[method]);
 };
+
 export { onRequest };

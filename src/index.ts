@@ -1,13 +1,15 @@
 import { mkdir, rm } from "node:fs/promises";
 import { join } from "node:path";
-import { getBuilder } from "frame-master/build";
 import {
-	directiveToolSingleton,
 	type Directives,
+	directiveToolSingleton,
 	type FrameMasterPlugin,
 } from "frame-master/plugin";
 import { verboseLog } from "frame-master/utils";
 import PackageJson from "../package.json";
+import "frame-master-plugin-build-unifier";
+import { getBuilder } from "frame-master/build";
+import { getGlobalPluginContext } from "frame-master/plugin/utils";
 
 declare global {
 	var WRANGLER_PROCESS: Bun.Subprocess;
@@ -211,19 +213,18 @@ export default function createCloudFlareWorkerActionPlugin(
 	};
 
 	const makeDevBuild = async (entryPoint: string[]) => {
-		const res = await Bun.build({
-			outdir: join(FUNCTION_DIR),
-			entrypoints: [...entryPoint],
-			plugins: [devPlugin],
-			splitting: true,
-			sourcemap: false,
-			root: actionBasePath,
-			minify: false,
-			naming: {
-				entry: "[dir]/[name].[ext]",
-			},
-		});
-		return res;
+		const builder = await getGlobalPluginContext("build-unifier")?.getBuilder?.(
+			PackageJson.name,
+		);
+
+		if (!builder) {
+			throw new Error(
+				`Builder instance not found in Cloudflare Worker Action Plugin. Make sure that "frame-master-plugin-build-unifier" is included in the plugins array and its version satisfies the requirement specified in package.json.`,
+			);
+		}
+
+		if (builder.isBuilding()) return builder.awaitBuildFinish();
+		else return builder.build(...entryPoint);
 	};
 
 	const createRouteMatcher = () =>
@@ -303,6 +304,23 @@ export default function createCloudFlareWorkerActionPlugin(
 		},
 
 		async createContext() {
+			getGlobalPluginContext("build-unifier")?.setBuildConfig?.(
+				PackageJson.name,
+				{
+					buildConfig: {
+						outdir: join(FUNCTION_DIR),
+						plugins: [devPlugin],
+						splitting: true,
+						sourcemap: false,
+						root: actionBasePath,
+						minify: false,
+						naming: {
+							entry: "[dir]/[name].[ext]",
+						},
+					},
+				},
+			);
+
 			transpiledCloudFlareScript = await Bun.file(
 				join(__dirname, "..", "dist", "dev", "miniflare-script.js"),
 			).text();
@@ -373,6 +391,13 @@ export default function createCloudFlareWorkerActionPlugin(
 						headers: res.headers,
 					})
 					.sendNow();
+			},
+		},
+		requirement: {
+			frameMasterVersion: "^3.1.3",
+			bunVersion: ">=1.3.10",
+			frameMasterPlugins: {
+				"frame-master-plugin-build-unifier": ">=0.1.0",
 			},
 		},
 	};

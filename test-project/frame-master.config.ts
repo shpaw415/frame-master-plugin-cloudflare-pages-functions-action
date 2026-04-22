@@ -1,8 +1,8 @@
-import type { FrameMasterConfig } from "frame-master/server/types";
-import ServerAction from "../src";
-import type { FrameMasterPlugin } from "frame-master/plugin";
 import { join } from "node:path";
 import { builder } from "frame-master/build";
+import type { FrameMasterPlugin } from "frame-master/plugin";
+import type { FrameMasterConfig } from "frame-master/server/types";
+import ServerAction from "../src";
 export default {
 	HTTPServer: {
 		port: 3001,
