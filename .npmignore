@@ -5,3 +5,6 @@ test-project
 release-notes
 bin
 .gitignore
+CONFIG_EXEMPLE.md
+QUICK_EXEMPLE.md
+bun.lock

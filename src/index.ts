@@ -5,7 +5,7 @@ import {
 	directiveToolSingleton,
 	type FrameMasterPlugin,
 } from "frame-master/plugin";
-import { verboseLog } from "frame-master/utils";
+import { isBuildMode, verboseLog } from "frame-master/utils";
 import PackageJson from "../package.json";
 import "frame-master-plugin-build-unifier";
 import { getBuilder } from "frame-master/build";
@@ -78,7 +78,6 @@ export default function createCloudFlareWorkerActionPlugin(
 ): FrameMasterPlugin {
 	const { actionBasePath, serverPort = 8787 } = props;
 
-	let routeMatcher: Bun.FileSystemRouter;
 	let transpiledCloudFlareScript: string;
 
 	async function createConfig(): Promise<Partial<Bun.BuildConfig>> {
@@ -224,7 +223,7 @@ export default function createCloudFlareWorkerActionPlugin(
 		}
 
 		if (builder.isBuilding()) return await builder.awaitBuildFinish();
-		else return builder.build(...(entryPoint ?? []));
+		return builder.build(...(entryPoint ?? []));
 	};
 
 	const createRouteMatcher = () =>
@@ -279,25 +278,25 @@ export default function createCloudFlareWorkerActionPlugin(
 		getGlobalPluginContext("build-unifier")?.setBuildConfig?.(
 			PackageJson.name,
 			{
-				buildConfig: () => {
-					routeMatcher = createRouteMatcher();
-					return {
-						outdir: join(FUNCTION_DIR),
-						plugins: [devPlugin],
-						entrypoints: Object.values(routeMatcher.routes),
-						splitting: true,
-						sourcemap: false,
-						root: actionBasePath,
-						minify: false,
-						naming: {
-							entry: "[dir]/[name].[ext]",
-						},
-					};
+				buildConfig: {
+					outdir: join(FUNCTION_DIR),
+					entrypoints: isBuildMode()
+						? Object.values(createRouteMatcher().routes)
+						: undefined,
+					plugins: [devPlugin],
+					splitting: true,
+					sourcemap: false,
+					root: actionBasePath,
+					minify: false,
+					naming: {
+						entry: "[dir]/[name].[ext]",
+					},
 				},
 			},
 		);
 	};
 
+	setBuildConfig();
 	return {
 		name: PackageJson.name,
 		version: PackageJson.version,
@@ -320,10 +319,9 @@ export default function createCloudFlareWorkerActionPlugin(
 		async onFileSystemChange(_ev, path, absolutePath) {
 			if (!absolutePath.startsWith(actionBasePath)) return;
 			await mkdir(FUNCTION_DIR, { recursive: true });
-			routeMatcher = createRouteMatcher();
 			directiveToolSingleton.clearPaths();
 			setBuildConfig();
-			await makeDevBuild();
+			await makeDevBuild(Object.values(createRouteMatcher().routes));
 			verboseLog(`Cloudflare Worker Action - File ${path} rebuilt`);
 		},
 
@@ -335,14 +333,12 @@ export default function createCloudFlareWorkerActionPlugin(
 				await rm(FUNCTION_DIR, { recursive: true, force: true });
 			} catch {}
 			await mkdir(FUNCTION_DIR, { recursive: true });
-			routeMatcher = createRouteMatcher();
 			setBuildConfig();
 		},
-		async serverReady() {
-			await makeDevBuild();
-		},
+
 		serverStart: {
-			dev_main() {
+			async dev_main() {
+				await makeDevBuild(Object.values(createRouteMatcher().routes));
 				if (global.WRANGLER_PROCESS && !global.WRANGLER_PROCESS.killed) return;
 				const proc = spawnWrangler();
 				console.log(
