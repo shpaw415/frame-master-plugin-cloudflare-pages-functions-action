@@ -212,7 +212,7 @@ export default function createCloudFlareWorkerActionPlugin(
 		},
 	};
 
-	const makeDevBuild = async (entryPoint: string[]) => {
+	const makeDevBuild = async (entryPoint?: string[]) => {
 		const builder = await getGlobalPluginContext("build-unifier")?.getBuilder?.(
 			PackageJson.name,
 		);
@@ -223,8 +223,8 @@ export default function createCloudFlareWorkerActionPlugin(
 			);
 		}
 
-		if (builder.isBuilding()) return;
-		else return builder.build(...entryPoint);
+		if (builder.isBuilding()) return await builder.awaitBuildFinish();
+		else return builder.build(...(entryPoint ?? []));
 	};
 
 	const createRouteMatcher = () =>
@@ -274,6 +274,30 @@ export default function createCloudFlareWorkerActionPlugin(
 
 		return { proc, isReady };
 	};
+
+	const setBuildConfig = () => {
+		getGlobalPluginContext("build-unifier")?.setBuildConfig?.(
+			PackageJson.name,
+			{
+				buildConfig: () => {
+					routeMatcher = createRouteMatcher();
+					return {
+						outdir: join(FUNCTION_DIR),
+						plugins: [devPlugin],
+						entrypoints: Object.values(routeMatcher.routes),
+						splitting: true,
+						sourcemap: false,
+						root: actionBasePath,
+						minify: false,
+						naming: {
+							entry: "[dir]/[name].[ext]",
+						},
+					};
+				},
+			},
+		);
+	};
+
 	return {
 		name: PackageJson.name,
 		version: PackageJson.version,
@@ -298,28 +322,12 @@ export default function createCloudFlareWorkerActionPlugin(
 			await mkdir(FUNCTION_DIR, { recursive: true });
 			routeMatcher = createRouteMatcher();
 			directiveToolSingleton.clearPaths();
-			await makeDevBuild([absolutePath]);
+			setBuildConfig();
+			await makeDevBuild();
 			verboseLog(`Cloudflare Worker Action - File ${path} rebuilt`);
 		},
 
 		async createContext() {
-			getGlobalPluginContext("build-unifier")?.setBuildConfig?.(
-				PackageJson.name,
-				{
-					buildConfig: {
-						outdir: join(FUNCTION_DIR),
-						plugins: [devPlugin],
-						splitting: true,
-						sourcemap: false,
-						root: actionBasePath,
-						minify: false,
-						naming: {
-							entry: "[dir]/[name].[ext]",
-						},
-					},
-				},
-			);
-
 			transpiledCloudFlareScript = await Bun.file(
 				join(__dirname, "..", "dist", "dev", "miniflare-script.js"),
 			).text();
@@ -328,7 +336,10 @@ export default function createCloudFlareWorkerActionPlugin(
 			} catch {}
 			await mkdir(FUNCTION_DIR, { recursive: true });
 			routeMatcher = createRouteMatcher();
-			makeDevBuild(Object.values(routeMatcher.routes));
+			setBuildConfig();
+		},
+		async serverReady() {
+			await makeDevBuild();
 		},
 		serverStart: {
 			dev_main() {
@@ -396,7 +407,8 @@ export default function createCloudFlareWorkerActionPlugin(
 			frameMasterVersion: "^3.1.3",
 			bunVersion: ">=1.3.10",
 			frameMasterPlugins: {
-				"frame-master-plugin-build-unifier": ">=0.1.0",
+				"frame-master-plugin-build-unifier":
+					PackageJson.peerDependencies["frame-master-plugin-build-unifier"],
 			},
 		},
 	};

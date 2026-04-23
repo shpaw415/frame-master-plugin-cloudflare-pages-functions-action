@@ -66,7 +66,7 @@ export default {
 			version: "1.0.0",
 			build: {
 				buildConfig: {
-					//entrypoints: ["index.ts"],
+					entrypoints: ["index.ts"],
 				},
 			},
 		},
