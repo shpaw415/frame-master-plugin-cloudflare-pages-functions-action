@@ -1,9 +1,9 @@
-import { GET } from "@api/action";
+import { GET } from "@api/react";
 
 const el = document.createElement("button");
 el.innerText = "Click me";
 el.onclick = () => {
-	GET({ data: "Hello from client action!" }).then((res) => {
+	GET().then((res) => {
 		console.log(res);
 	});
 };
