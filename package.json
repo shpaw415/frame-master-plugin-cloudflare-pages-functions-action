@@ -19,8 +19,7 @@
 	},
 	"exports": {
 		".": "./src/index.ts",
-		"./context": "./src/context.ts",
-		"./types": "./src/types.ts"
+		"./context": "./src/context.ts"
 	},
 	"scripts": {
 		"build:bootstrap": "bun build src/dev/miniflare-script.ts --outfile dist/dev/miniflare-script.js"
