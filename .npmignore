@@ -1,9 +1,7 @@
-test-project
-.wrangler
 .vscode
 .github
 release-notes
-bin
+test-project
 .gitignore
 CONFIG_EXEMPLE.md
 QUICK_EXEMPLE.md
