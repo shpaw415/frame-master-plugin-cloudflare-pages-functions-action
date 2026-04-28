@@ -1,7 +1,6 @@
 import { mkdir, rm } from "node:fs/promises";
 import { join, basename } from "node:path";
 import {
-	type Directives,
 	directiveToolSingleton,
 	type FrameMasterPlugin,
 } from "frame-master/plugin";
@@ -35,6 +34,12 @@ export type CloudFlareWorkerActionPluginOptions<fetchType = typeof fetch> = {
 	 * Custom fetch implementation for making requests to the worker.
 	 */
 	customFetch?: string | fetchType;
+	/**
+	 * Override the default build configuration.
+	 */
+	buildFunctionConfigOverride?:
+		| Partial<Bun.BuildConfig>
+		| (() => Partial<Bun.BuildConfig>);
 };
 const FUNCTION_DIR = "functions";
 const cloudflareActionPluginDisplayName = "Cloudflare-action-plugin";
@@ -162,7 +167,7 @@ export default function createCloudFlareWorkerActionPlugin(
 			{
 				buildConfig: {
 					outdir: FUNCTION_DIR,
-					target: "node",
+					target: "browser",
 					throw: true,
 					loader: {
 						".cfabootstrap": "ts",
@@ -237,12 +242,16 @@ export default function createCloudFlareWorkerActionPlugin(
 						},
 					],
 					splitting: true,
-					sourcemap: false,
 					root: actionBasePath,
 					minify: isProd(),
 					naming: {
 						entry: "[dir]/[name].[ext]",
 					},
+					...(props.buildFunctionConfigOverride
+						? typeof props.buildFunctionConfigOverride === "function"
+							? props.buildFunctionConfigOverride()
+							: props.buildFunctionConfigOverride
+						: {}),
 				},
 			},
 		);
