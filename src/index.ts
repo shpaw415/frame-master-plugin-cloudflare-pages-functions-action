@@ -165,6 +165,15 @@ export default function createCloudFlareWorkerActionPlugin(
 		getGlobalPluginContext("build-unifier")?.setBuildConfig?.(
 			PackageJson.name,
 			{
+				beforeBuild() {
+					globalThis.WRANGLER_PROCESS?.kill();
+				},
+				async afterBuild() {
+					if (!globalThis.WRANGLER_PROCESS?.killed) return;
+					const proc = spawnWrangler();
+					globalThis.WRANGLER_PROCESS = proc.proc;
+					await proc.isReady;
+				},
 				buildConfig: () => ({
 					outdir: FUNCTION_DIR,
 					target: "browser",
