@@ -165,18 +165,14 @@ export default function createCloudFlareWorkerActionPlugin(
 		getGlobalPluginContext("build-unifier")?.setBuildConfig?.(
 			PackageJson.name,
 			{
-				buildConfig: {
+				buildConfig: () => ({
 					outdir: FUNCTION_DIR,
 					target: "browser",
 					throw: true,
 					loader: {
 						".cfabootstrap": "ts",
 					},
-					entrypoints: [
-						...(isBuildMode()
-							? Object.values(createRouteMatcher().routes)
-							: []),
-					],
+					entrypoints: Object.values(createRouteMatcher().routes),
 					files: {
 						[pathToServerBootStrap]: `export { default } from "${join(__dirname, "server", "index.ts")}";`,
 					},
@@ -252,12 +248,12 @@ export default function createCloudFlareWorkerActionPlugin(
 							? props.buildFunctionConfigOverride()
 							: props.buildFunctionConfigOverride
 						: {}),
-				},
+				}),
 			},
 		);
 	};
 
-	const makeDevBuild = async (entryPoint?: string[]) => {
+	const makeDevBuild = async () => {
 		const builder = await getGlobalPluginContext("build-unifier")?.getBuilder?.(
 			PackageJson.name,
 		);
@@ -269,7 +265,7 @@ export default function createCloudFlareWorkerActionPlugin(
 		}
 
 		if (builder.isBuilding()) return await builder.awaitBuildFinish();
-		return builder.build(...(entryPoint ?? []));
+		return builder.build();
 	};
 
 	const spawnWrangler = () => {
@@ -335,7 +331,7 @@ export default function createCloudFlareWorkerActionPlugin(
 			await mkdir(FUNCTION_DIR, { recursive: true });
 			directiveToolSingleton.clearPaths();
 			createServerFunctionsBuildConfig();
-			await makeDevBuild(Object.values(createRouteMatcher().routes));
+			await makeDevBuild();
 			verboseLog(`Cloudflare Worker Action - File ${path} rebuilt`);
 		},
 
@@ -349,7 +345,7 @@ export default function createCloudFlareWorkerActionPlugin(
 
 		serverStart: {
 			async dev_main() {
-				await makeDevBuild(Object.values(createRouteMatcher().routes));
+				await makeDevBuild();
 				if (global.WRANGLER_PROCESS && !global.WRANGLER_PROCESS.killed) return;
 				const proc = spawnWrangler();
 				console.log(
