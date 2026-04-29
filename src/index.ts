@@ -188,7 +188,13 @@ export default function createCloudFlareWorkerActionPlugin(
 								artifact.path.replace(pathToTempOutput, FUNCTION_DIR),
 							)
 							.filter((finalPath) => !allFiles.includes(finalPath))
-							.map((fp) => Bun.file(fp).delete()),
+							.map((fp) =>
+								Bun.file(fp)
+									.delete()
+									.catch((e) =>
+										console.warn(`Failed to delete file ${fp}:`, e),
+									),
+							),
 					);
 				},
 				buildConfig: () => ({
