@@ -1,0 +1,10 @@
+{
+  "version": 3,
+  "sources": ["../../src/action/api/index.ts"],
+  "sourcesContent": [
+    "import createOnRequest from \"/home/shpaw415/frame-master-plugin/cloudflare-pages-functions-action/test-project/src/action/cloudflare-worker-action/server/bootstrap.cfabootstrap\";\n\"no action\";\n\nimport type { EventContext } from \"@cloudflare/workers-types\";\n\nexport async function onRequestGet(params: EventContext<Env, any, any>) {\n\treturn new Response(\"Hello from Cloudflare Pages Function!\", {\n\t\theaders: { \"content-type\": \"text/plain\" },\n\t});\n}\n\n\n\t\t\t\t\t\t\t\t\t\t\t\tconst handlers = {\n\t\t\t\t\t\t\t\t\t\t\t\t\tGET: typeof GET === \"function\" ? GET : undefined,\nPOST: typeof POST === \"function\" ? POST : undefined,\nPUT: typeof PUT === \"function\" ? PUT : undefined,\nDELETE: typeof DELETE === \"function\" ? DELETE : undefined,\nPATCH: typeof PATCH === \"function\" ? PATCH : undefined,\nHEAD: typeof HEAD === \"function\" ? HEAD : undefined,\nOPTIONS: typeof OPTIONS === \"function\" ? OPTIONS : undefined\n\t\t\t\t\t\t\t\t\t\t\t\t};\n\t\t\t\t\t\t\t\t\t\t\t\texport const onRequest = createOnRequest(handlers);\n\t\t\t\t\t\t\t\t\t\t\t\t"
+  ],
+  "mappings": ";;;;;AAKA,eAAsB,YAAY,CAAC,QAAqC;AAAA,EACvE,OAAO,IAAI,SAAS,yCAAyC;AAAA,IAC5D,SAAS,EAAE,gBAAgB,aAAa;AAAA,EACzC,CAAC;AAAA;AAIU,IAAM,WAAW;AAAA,EAChB,KAAK,OAAO,QAAQ,aAAa,MAAM;AAAA,EACpD,MAAM,OAAO,SAAS,aAAa,OAAO;AAAA,EAC1C,KAAK,OAAO,QAAQ,aAAa,MAAM;AAAA,EACvC,QAAQ,OAAO,WAAW,aAAa,SAAS;AAAA,EAChD,OAAO,OAAO,UAAU,aAAa,QAAQ;AAAA,EAC7C,MAAM,OAAO,SAAS,aAAa,OAAO;AAAA,EAC1C,SAAS,OAAO,YAAY,aAAa,UAAU;AACvC;AACO,IAAM,YAAY,gBAAgB,QAAQ;",
+  "debugId": "A163903C3C989D9D64756E2164756E21",
+  "names": []
+}

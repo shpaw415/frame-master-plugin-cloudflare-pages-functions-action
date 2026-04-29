@@ -1,3 +1,4 @@
+import { cpSync } from "node:fs";
 import { basename, join } from "node:path";
 import {
 	directiveToolSingleton,
@@ -165,12 +166,33 @@ export default function createCloudFlareWorkerActionPlugin(
 			actionBasePath,
 			"cloudflare-worker-action/server/bootstrap.cfabootstrap",
 		);
+		const pathToTempOutput = join(".frame-master", "cf-actions-temp");
 
 		getGlobalPluginContext("build-unifier")?.setBuildConfig?.(
 			PackageJson.name,
 			{
+				async afterBuild(conf, out) {
+					cpSync(pathToTempOutput, FUNCTION_DIR, {
+						recursive: true,
+						force: true,
+					});
+					const allFiles = Array.from(
+						new Bun.Glob("**/*").scanSync({
+							absolute: true,
+							cwd: FUNCTION_DIR,
+						}),
+					);
+					await Promise.all(
+						out.outputs
+							.map((artifact) =>
+								artifact.path.replace(pathToTempOutput, FUNCTION_DIR),
+							)
+							.filter((finalPath) => !allFiles.includes(finalPath))
+							.map((fp) => Bun.file(fp).delete()),
+					);
+				},
 				buildConfig: () => ({
-					outdir: FUNCTION_DIR,
+					outdir: pathToTempOutput,
 					target: "browser",
 					throw: true,
 					loader: {
