@@ -1,10 +1,9 @@
-import { mkdir, rm } from "node:fs/promises";
-import { join, basename } from "node:path";
+import { basename, join } from "node:path";
 import {
 	directiveToolSingleton,
 	type FrameMasterPlugin,
 } from "frame-master/plugin";
-import { isBuildMode, verboseLog, isProd } from "frame-master/utils";
+import { isProd, verboseLog } from "frame-master/utils";
 import PackageJson from "../package.json";
 import "frame-master-plugin-build-unifier";
 import { getBuilder } from "frame-master/build";
@@ -40,12 +39,18 @@ export type CloudFlareWorkerActionPluginOptions<fetchType = typeof fetch> = {
 	buildFunctionConfigOverride?:
 		| Partial<Bun.BuildConfig>
 		| (() => Partial<Bun.BuildConfig>);
+
+	suppressWranings?: Partial<{
+		/** Suppress warnings for dynamic route files being used as client actions */
+		dynamicRoute: boolean;
+	}>;
 };
 const FUNCTION_DIR = "functions";
 const cloudflareActionPluginDisplayName = "Cloudflare-action-plugin";
 const WRANGLER_READY_TIMEOUT_MS = 30_000;
 const WRANGLER_POLL_INTERVAL_MS = 250;
 const WRANGLER_PROBE_TIMEOUT_MS = 1_500;
+const cwd = process.cwd();
 
 async function waitForWranglerReady(proc: Bun.Subprocess, port: number) {
 	const readinessUrl = `http://127.0.0.1:${port}/`;
@@ -76,7 +81,6 @@ async function waitForWranglerReady(proc: Bun.Subprocess, port: number) {
 		`Timed out waiting for Wrangler to accept requests on ${readinessUrl}`,
 	);
 }
-const cwd = process.cwd();
 export default function createCloudFlareWorkerActionPlugin(
 	props: CloudFlareWorkerActionPluginOptions,
 ): FrameMasterPlugin {
@@ -165,15 +169,6 @@ export default function createCloudFlareWorkerActionPlugin(
 		getGlobalPluginContext("build-unifier")?.setBuildConfig?.(
 			PackageJson.name,
 			{
-				beforeBuild() {
-					globalThis.WRANGLER_PROCESS?.kill();
-				},
-				async afterBuild() {
-					if (!globalThis.WRANGLER_PROCESS?.killed) return;
-					const proc = spawnWrangler();
-					globalThis.WRANGLER_PROCESS = proc.proc;
-					await proc.isReady;
-				},
 				buildConfig: () => ({
 					outdir: FUNCTION_DIR,
 					target: "browser",
@@ -208,9 +203,12 @@ export default function createCloudFlareWorkerActionPlugin(
 											};
 										}
 										const filename = basename(args.path);
-										if (filename.match(/^\[.*\]\.[^.]+$/)) {
-											throw new Error(
-												`You are trying to use a dynamic route file (${filename}) as a client action. This is not supported`,
+										if (
+											filename.match(/^\[.*\]\.[^.]+$/) &&
+											!props.suppressWranings?.dynamicRoute
+										) {
+											console.warn(
+												`You are trying to use a dynamic route file (${filename}) as a client action. This is not recommended`,
 											);
 										}
 
@@ -335,20 +333,17 @@ export default function createCloudFlareWorkerActionPlugin(
 			buildConfig: createClientConfig,
 		},
 		fileSystemWatchDir: [actionBasePath],
-		async onFileSystemChange(_ev, path, absolutePath) {
+		async onFileSystemChange(_ev, _path, absolutePath) {
 			if (!absolutePath.startsWith(actionBasePath)) return;
-			await mkdir(FUNCTION_DIR, { recursive: true });
 			directiveToolSingleton.clearPaths();
 			createServerFunctionsBuildConfig();
-			await makeDevBuild();
-			verboseLog(`Cloudflare Worker Action - File ${path} rebuilt`);
+			const res = await makeDevBuild();
+			verboseLog(
+				`Cloudflare Worker Action - Function Bundle rebuilt: ${res?.success ? "success" : "failed"}`,
+			);
 		},
 
 		async createContext() {
-			try {
-				await rm(FUNCTION_DIR, { recursive: true, force: true });
-			} catch {}
-			await mkdir(FUNCTION_DIR, { recursive: true });
 			createServerFunctionsBuildConfig();
 		},
 

@@ -2,8 +2,8 @@ import { join } from "node:path";
 import { builder } from "frame-master/build";
 import type { FrameMasterPlugin } from "frame-master/plugin";
 import type { FrameMasterConfig } from "frame-master/server/types";
-import ServerAction from "../src";
 import BuildUnifier from "frame-master-plugin-build-unifier";
+import ServerAction from "../src";
 
 export default {
 	HTTPServer: {
