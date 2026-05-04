@@ -1,6 +1,6 @@
 import {
   createOnRequest
-} from "./../chunk-ytvdsmzg.js";
+} from "../chunk-wvjag833.js";
 
 // src/action/api/index.ts
 async function onRequestGet(params) {
@@ -22,6 +22,3 @@ export {
   onRequestGet,
   onRequest
 };
-
-//# debugId=A163903C3C989D9D64756E2164756E21
-//# sourceMappingURL=./api/index.js.map

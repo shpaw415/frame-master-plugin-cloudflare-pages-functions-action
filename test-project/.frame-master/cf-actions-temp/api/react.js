@@ -2,7 +2,7 @@ import {
   __commonJS,
   __toESM,
   createOnRequest
-} from "./../chunk-ytvdsmzg.js";
+} from "../chunk-wvjag833.js";
 
 // node_modules/react/cjs/react.development.js
 var require_react_development = __commonJS((exports, module) => {
@@ -12854,6 +12854,3 @@ export {
   onRequest,
   GET
 };
-
-//# debugId=BC94035FC7ED705964756E2164756E21
-//# sourceMappingURL=./api/react.js.map
