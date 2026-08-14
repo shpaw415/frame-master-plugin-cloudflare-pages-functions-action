@@ -9,6 +9,9 @@ import PackageJson from "../package.json";
 import "frame-master-plugin-build-unifier";
 import { getBuilder } from "frame-master/build";
 import { getGlobalPluginContext } from "frame-master/plugin/utils";
+import clientBootstrap from "./client/bootstrap.ts" with { type: "text" };
+
+const clientBootstrapContents = clientBootstrap as unknown as string;
 
 declare global {
 	var WRANGLER_PROCESS: Bun.Subprocess;
@@ -97,14 +100,9 @@ export default function createCloudFlareWorkerActionPlugin(
 			style: "nextjs",
 		});
 
-	async function createClientConfig(): Promise<Partial<Bun.BuildConfig>> {
+	function createClientConfig(): Partial<Bun.BuildConfig> {
 		const routeMatcher = createRouteMatcher();
 		return {
-			files: {
-				"@cloudflare-worker-action/bootstrap.ts": await Bun.file(
-					join(__dirname, "client", "bootstrap.ts"),
-				).text(),
-			},
 			plugins: [
 				{
 					name: "cloudflare-worker-action-plugin",
@@ -349,6 +347,13 @@ export default function createCloudFlareWorkerActionPlugin(
 	return {
 		name: PackageJson.name,
 		version: PackageJson.version,
+		virtualModules: {
+			"@cloudflare-worker-action/bootstrap.ts": {
+				contents: clientBootstrapContents,
+				loader: "ts",
+				injectRuntime: true,
+			},
+		},
 		directives: [
 			{
 				name: "no-action",
@@ -440,11 +445,10 @@ export default function createCloudFlareWorkerActionPlugin(
 			},
 		},
 		requirement: {
-			frameMasterVersion: "^3.1.3",
+			frameMasterVersion: PackageJson.peerDependencies["frame-master"],
 			bunVersion: ">=1.3.10",
 			frameMasterPlugins: {
-				"frame-master-plugin-build-unifier":
-					PackageJson.peerDependencies["frame-master-plugin-build-unifier"],
+				"frame-master-plugin-build-unifier": PackageJson.peerDependencies["frame-master-plugin-build-unifier"],
 			},
 		},
 	};
