@@ -1,0 +1,1 @@
+import{a as t}from"./chunk-r7t4rbxm.js";import"./chunk-0080f146.js";var e=document.createElement("button");e.innerText="Click me";e.onclick=()=>{t().then((n)=>{console.log(n)})};document.body.appendChild(e);
