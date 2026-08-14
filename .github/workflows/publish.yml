@@ -20,6 +20,11 @@ jobs:
         with:
           bun-version: 1.3.14
 
+      # npm Trusted Publishing requires a recent npm CLI capable of OIDC exchange.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
       - id: package
         run: |
           echo "name=$(node -p \"require('./package.json').name\")" >> "$GITHUB_OUTPUT"
