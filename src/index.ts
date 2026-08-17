@@ -1,5 +1,5 @@
-import { cpSync } from "node:fs";
-import { basename, join } from "node:path";
+import { cpSync, mkdirSync, rmSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import {
 	directiveToolSingleton,
 	type FrameMasterPlugin,
@@ -172,29 +172,17 @@ export default function createCloudFlareWorkerActionPlugin(
 			PackageJson.name,
 			{
 				async afterBuild(conf, out) {
-					cpSync(pathToTempOutput, FUNCTION_DIR, {
-						recursive: true,
-						force: true,
-					});
-					const allFiles = Array.from(
-						new Bun.Glob("**/*").scanSync({
-							absolute: true,
-							cwd: FUNCTION_DIR,
-						}),
-					);
+					rmSync(FUNCTION_DIR, { recursive: true, force: true });
+					mkdirSync(FUNCTION_DIR, { recursive: true });
 					await Promise.all(
-						out.outputs
-							.map((artifact) =>
-								artifact.path.replace(pathToTempOutput, FUNCTION_DIR),
-							)
-							.filter((finalPath) => !allFiles.includes(finalPath))
-							.map((fp) =>
-								Bun.file(fp)
-									.delete()
-									.catch((e) =>
-										console.warn(`Failed to delete file ${fp}:`, e),
-									),
-							),
+						out.outputs.map(async (artifact) => {
+							const dest = artifact.path.replace(
+								pathToTempOutput,
+								FUNCTION_DIR,
+							);
+							mkdirSync(dirname(dest), { recursive: true });
+							cpSync(artifact.path, dest);
+						}),
 					);
 				},
 				buildConfig: () => ({
@@ -269,6 +257,7 @@ export default function createCloudFlareWorkerActionPlugin(
 					minify: isProd(),
 					naming: {
 						entry: "[dir]/[name].[ext]",
+						chunk: "_lib/chunk-[hash].[ext]",
 					},
 					...(props.buildFunctionConfigOverride
 						? typeof props.buildFunctionConfigOverride === "function"
