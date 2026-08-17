@@ -28,17 +28,22 @@ bun add frame-master-plugin-cloudflare-pages-functions-action
 Add the plugin to your `frame-master.config.ts`:
 
 ```typescript
+import { BuildUnifier } from "frame-master/plugin";
 import CloudFlareWorkerAction from "frame-master-plugin-cloudflare-pages-functions-action";
 import type { FrameMasterConfig } from "frame-master/server/types";
 
 export default {
   plugins: [
-    CloudFlareWorkerAction({
-      actionBasePath: "src/actions", // Directory containing your actions
-      outDir: ".frame-master/build", // Build output directory
-      serverPort: 8787, // Optional: Wrangler dev server port (default: 8787)
+    ...BuildUnifier({
+      id: "cf-actions",
+      plugins: [
+        CloudFlareWorkerAction({
+          actionBasePath: "src/actions",
+          outDir: ".frame-master/build",
+          serverPort: 8787,
+        }),
+      ],
     }),
-    // ... other plugins
   ],
 } satisfies FrameMasterConfig;
 ```

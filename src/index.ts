@@ -3,12 +3,13 @@ import { basename, join } from "node:path";
 import {
 	directiveToolSingleton,
 	type FrameMasterPlugin,
+	getBuildPipelines,
+	getBuildUnifierContext,
+	getChainableContent,
 } from "frame-master/plugin";
 import { isProd, verboseLog } from "frame-master/utils";
 import PackageJson from "../package.json";
-import "frame-master-plugin-build-unifier";
 import { getBuilder } from "frame-master/build";
-import { getGlobalPluginContext } from "frame-master/plugin/utils";
 import clientBootstrap from "./client/bootstrap.ts" with { type: "text" };
 
 const clientBootstrapContents = clientBootstrap as unknown as string;
@@ -50,6 +51,8 @@ export type CloudFlareWorkerActionPluginOptions<fetchType = typeof fetch> = {
 	}>;
 };
 const FUNCTION_DIR = "functions";
+const CLIENT_BOOTSTRAP_SPECIFIER = "@cloudflare-worker-action/bootstrap.ts";
+const SERVER_BOOTSTRAP_SPECIFIER = "@cloudflare-worker-action/server.ts";
 const cloudflareActionPluginDisplayName = "Cloudflare-action-plugin";
 const WRANGLER_READY_TIMEOUT_MS = 30_000;
 const WRANGLER_POLL_INTERVAL_MS = 250;
@@ -113,8 +116,7 @@ export default function createCloudFlareWorkerActionPlugin(
 
 						// Transpile to client action
 						build.onLoad({ filter: actionBasePathRegex }, async (args) => {
-							const fileContent =
-								args.__chainedContents ?? (await Bun.file(args.path).text());
+							const fileContent = await getChainableContent(args);
 
 							const clientPathname = Object.entries(routeMatcher.routes)
 								.find(([_pathname, filepath]) => args.path === filepath)
@@ -144,7 +146,7 @@ export default function createCloudFlareWorkerActionPlugin(
 									: props.customFetch) ?? "fetch";
 							return {
 								contents: [
-									`import makeActionRequest from "@cloudflare-worker-action/bootstrap.ts";`,
+									`import makeActionRequest from "${CLIENT_BOOTSTRAP_SPECIFIER}";`,
 									...(transpiler.scan(fileContent).exports ?? []).map(
 										(exp) =>
 											`export const ${exp} = (...args) => makeActionRequest(args, "${clientPathname}","${exp}", ${fetcherString});`,
@@ -159,14 +161,14 @@ export default function createCloudFlareWorkerActionPlugin(
 		};
 	}
 	const createServerFunctionsBuildConfig = () => {
-		const pathToServerBootStrap = join(
-			cwd,
-			actionBasePath,
-			"cloudflare-worker-action/server/bootstrap.cfabootstrap",
+		const pipelineReady = getBuildPipelines().some((pipeline) =>
+			pipeline.pluginNames.includes(PackageJson.name),
 		);
+		if (!pipelineReady) return;
+
 		const pathToTempOutput = join(".frame-master", "cf-actions-temp");
 
-		getGlobalPluginContext("build-unifier")?.setBuildConfig?.(
+		getBuildUnifierContext()?.setBuildConfig?.(
 			PackageJson.name,
 			{
 				async afterBuild(conf, out) {
@@ -199,13 +201,7 @@ export default function createCloudFlareWorkerActionPlugin(
 					outdir: pathToTempOutput,
 					target: "browser",
 					throw: true,
-					loader: {
-						".cfabootstrap": "ts",
-					},
 					entrypoints: Object.values(createRouteMatcher().routes),
-					files: {
-						[pathToServerBootStrap]: `export { default } from "${join(__dirname, "server", "index.ts")}";`,
-					},
 					plugins: [
 						{
 							name: "cloudflare-action-dev-plugin",
@@ -215,34 +211,32 @@ export default function createCloudFlareWorkerActionPlugin(
 										filter: actionBasePathRegex,
 									},
 									async (args) => {
-										if (
-											args.path.match(/.*_middleware\.(js|ts)$/) ||
-											(await directiveToolSingleton.pathIs(
-												"no-action",
-												args.path,
-											))
-										) {
-											return {
-												contents:
-													args.__chainedContents ??
-													(await Bun.file(args.path).text()),
-											};
-										}
-										const filename = basename(args.path);
-										if (
-											filename.match(/^\[.*\]\.[^.]+$/) &&
-											!props.suppressWranings?.dynamicRoute
-										) {
-											console.warn(
-												`You are trying to use a dynamic route file (${filename}) as a client action. This is not recommended`,
-											);
-										}
-
+									const fileContent = await getChainableContent(args);
+									if (
+										args.path.match(/.*_middleware\.(js|ts)$/) ||
+										(await directiveToolSingleton.pathIs(
+											"no-action",
+											args.path,
+										))
+									) {
 										return {
-											contents: [
-												`import createOnRequest from "${pathToServerBootStrap}";`,
-												(args.__chainedContents as string) ??
-													(await Bun.file(args.path).text()),
+											contents: fileContent,
+										};
+									}
+									const filename = basename(args.path);
+									if (
+										filename.match(/^\[.*\]\.[^.]+$/) &&
+										!props.suppressWranings?.dynamicRoute
+									) {
+										console.warn(
+											`You are trying to use a dynamic route file (${filename}) as a client action. This is not recommended`,
+										);
+									}
+
+									return {
+										contents: [
+											`import createOnRequest from "${SERVER_BOOTSTRAP_SPECIFIER}";`,
+											fileContent,
 												`
 												const handlers = {
 													${[
@@ -287,18 +281,26 @@ export default function createCloudFlareWorkerActionPlugin(
 	};
 
 	const makeDevBuild = async () => {
-		const builder = await getGlobalPluginContext("build-unifier")?.getBuilder?.(
+		const builder = await getBuildUnifierContext()?.getBuilder?.(
 			PackageJson.name,
 		);
 
 		if (!builder) {
 			throw new Error(
-				`Builder instance not found in Cloudflare Worker Action Plugin. Make sure that "frame-master-plugin-build-unifier" is included in the plugins array and its version satisfies the requirement specified in package.json.`,
+				`Builder instance not found in Cloudflare Worker Action Plugin. Wrap this plugin with BuildUnifier({ id: "cf-actions", plugins: [...] }) from "frame-master/plugin" (or the legacy frame-master-plugin-build-unifier package).`,
 			);
 		}
 
 		if (builder.isBuilding()) return await builder.awaitBuildFinish();
 		return builder.build();
+	};
+
+	const stopWrangler = () => {
+		const proc = global.WRANGLER_PROCESS;
+		if (proc && !proc.killed && proc.exitCode === null) {
+			proc.kill();
+		}
+		global.WRANGLER_PROCESS = undefined as unknown as Bun.Subprocess;
 	};
 
 	const spawnWrangler = () => {
@@ -318,23 +320,6 @@ export default function createCloudFlareWorkerActionPlugin(
 			stdin: "ignore",
 		});
 
-		process.on("SIGINT", (sig) => {
-			proc.kill(sig);
-			process.exit();
-		});
-		process.on("exit", (code) => {
-			proc.kill();
-			process.exit(code);
-		});
-		process.on("SIGTERM", (sig) => {
-			proc.kill(sig);
-			process.exit();
-		});
-		process.on("SIGHUP", (sig) => {
-			proc.kill(sig);
-			process.exit();
-		});
-
 		const isReady = waitForWranglerReady(proc, serverPort).catch((error) => {
 			if (!proc.killed && proc.exitCode === null) proc.kill();
 			throw error;
@@ -348,10 +333,15 @@ export default function createCloudFlareWorkerActionPlugin(
 		name: PackageJson.name,
 		version: PackageJson.version,
 		virtualModules: {
-			"@cloudflare-worker-action/bootstrap.ts": {
+			[CLIENT_BOOTSTRAP_SPECIFIER]: {
 				contents: clientBootstrapContents,
 				loader: "ts",
 				injectRuntime: true,
+			},
+			[SERVER_BOOTSTRAP_SPECIFIER]: {
+				contents: `export { default } from "${join(__dirname, "server", "index.ts")}";`,
+				loader: "ts",
+				injectRuntime: false,
 			},
 		},
 		directives: [
@@ -395,6 +385,9 @@ export default function createCloudFlareWorkerActionPlugin(
 					),
 				);
 			},
+		},
+		serverStop() {
+			stopWrangler();
 		},
 		router: {
 			async request(master) {
@@ -447,9 +440,6 @@ export default function createCloudFlareWorkerActionPlugin(
 		requirement: {
 			frameMasterVersion: PackageJson.peerDependencies["frame-master"],
 			bunVersion: ">=1.3.10",
-			frameMasterPlugins: {
-				"frame-master-plugin-build-unifier": PackageJson.peerDependencies["frame-master-plugin-build-unifier"],
-			},
 		},
 	};
 }
