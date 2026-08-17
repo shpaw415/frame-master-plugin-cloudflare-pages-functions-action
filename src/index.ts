@@ -251,13 +251,35 @@ export default function createCloudFlareWorkerActionPlugin(
 								);
 							},
 						},
+						{
+							name: "stub-browser-only-for-workers",
+							setup(build) {
+								build.onResolve(
+									{
+										filter:
+											/(?:^|\/)(mermaid|@lightenna\/react-mermaid-diagram)(?:\/|$)/,
+									},
+									(args) => ({
+										path: args.path,
+										namespace: "cf-browser-stub",
+									}),
+								);
+								build.onLoad(
+									{ filter: /.*/, namespace: "cf-browser-stub" },
+									() => ({
+										contents:
+											"export default {}; export const MermaidDiagram = () => null;",
+										loader: "js",
+									}),
+								);
+							},
+						},
 					],
-					splitting: true,
+					splitting: false,
 					root: actionBasePath,
 					minify: isProd(),
 					naming: {
 						entry: "[dir]/[name].[ext]",
-						chunk: "_lib/chunk-[hash].[ext]",
 					},
 					...(props.buildFunctionConfigOverride
 						? typeof props.buildFunctionConfigOverride === "function"
