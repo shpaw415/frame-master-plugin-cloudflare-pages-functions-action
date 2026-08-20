@@ -1,61 +1,11 @@
-import superjson from "superjson";
-
-function InitActionData(
-	...props: Array<File | string | string[] | FormData | { [key: string]: any }>
-) {
-	let currentPropsIndex = 0;
-	const formatToFile = () => {
-		currentPropsIndex++;
-		return `FILE_${currentPropsIndex}`;
-	};
-	const formatToBatchedFile = () => {
-		return `FILES_${currentPropsIndex}`;
-	};
-	const formatToJson = () => {
-		currentPropsIndex++;
-		return `JSON_${currentPropsIndex}`;
-	};
-
-	const formData = new FormData();
-
-	if (props.length === 0) return formData;
-	else if (props.length === 1 && props[0] instanceof FormData) {
-		return props[0] as FormData;
-	}
-	for (const prop of props) {
-		if (prop instanceof FormData) {
-			throw new Error(
-				"only one prop is permitted with a FormData in a Worker Action",
-			);
-		} else if (prop instanceof File) {
-			const id = formatToFile();
-			formData.append(id, prop);
-		} else if (Array.isArray(prop) && prop.length > 0) {
-			if (!(prop[0] instanceof File)) {
-				const id = formatToJson();
-				formData.append(id, encodeURI(JSON.stringify(prop)));
-			} else {
-				const id = formatToBatchedFile();
-				prop.forEach((p) => {
-					if (p instanceof File) {
-						formData.append(id, p);
-					} else {
-						throw new Error(
-							"only File instances are permitted inside an array of Files in a Worker Action",
-						);
-					}
-				});
-			}
-		} else {
-			const id = formatToJson();
-			formData.append(id, encodeURI(JSON.stringify(prop)));
-		}
-	}
-	return formData;
-}
+import {
+	decodeActionResult,
+	encodeActionArgs,
+	encodeActionArgsToSearchParams,
+} from "../codec";
 
 async function makeActionRequest(
-	props: Array<any>,
+	props: Array<unknown>,
 	pathname: string,
 	method:
 		| "GET"
@@ -67,82 +17,29 @@ async function makeActionRequest(
 		| "OPTIONS" = "POST",
 	fetcher = fetch,
 ) {
-	if (method === "GET" || method === "HEAD") {
-		if (props.length > 0) {
-			const url = new URL(pathname, window.location.origin);
-			let i = 0;
-			for (const prop of props) {
-				i = i++;
-				url.searchParams.append(
-					`arg_${i}`,
-					encodeURIComponent(JSON.stringify(prop)),
-				);
-			}
-			pathname = url.toString();
-			const res = await fetcher(pathname, {
+	if ((method === "GET" || method === "HEAD") && props.length > 0) {
+		const origin = globalThis.location?.origin ?? "http://localhost";
+		const res = await fetcher(
+			encodeActionArgsToSearchParams(props, pathname, origin),
+			{
 				method,
 				headers: {
 					"x-server-action": "true",
 					"x-params-url": "true",
 				},
-			});
-			return await ParseServerActionResponse(res);
-		}
+			},
+		);
+		return await decodeActionResult(res);
 	}
 
 	const res = await fetcher(pathname, {
 		method,
-		body: props.length > 0 ? InitActionData(...props) : undefined,
+		body: props.length > 0 ? encodeActionArgs(props) : undefined,
 		headers: {
 			"x-server-action": "true",
 		},
 	});
-	return await ParseServerActionResponse(res);
-}
-
-type ServerActionDataTypeHeader = "json" | "file" | "blob" | "response";
-
-async function ParseServerActionResponse(response: Response) {
-	const dataType = response.headers.get(
-		"datatype",
-	) as ServerActionDataTypeHeader;
-	if (!response.ok && dataType !== "response")
-		throw new Error(
-			`error when Calling worker action ${response.url}: ${response.statusText}`,
-		);
-
-	let blob: Blob | null = null;
-	let fileData: { name: string; lastModified: number } | null = null;
-
-	switch (dataType) {
-		case "json":
-			return superjson.parse(await response.text()) as { props: any };
-		case "blob":
-			return await response.blob();
-		case "file":
-			blob = await response.blob();
-			fileData = JSON.parse(response.headers.get("fileData") || "") as {
-				name: string;
-				lastModified: number;
-			};
-			return new File([blob], fileData.name, {
-				type: blob.type,
-				lastModified: fileData.lastModified,
-			});
-		case "response":
-			return response;
-		default:
-			try {
-				return await superjson.parse(await response.text());
-			} catch (e) {
-				throw new Error(
-					`Unsupported data type returned from server action: ${response.headers.get(
-						"dataType",
-					)}`,
-					{ cause: e },
-				);
-			}
-	}
+	return await decodeActionResult(res);
 }
 
 export default makeActionRequest;

@@ -1,8 +1,7 @@
 import { join } from "node:path";
 import { builder } from "frame-master/build";
-import type { FrameMasterPlugin } from "frame-master/plugin";
+import { BuildUnifier, type FrameMasterPlugin } from "frame-master/plugin";
 import type { FrameMasterConfig } from "frame-master/server/types";
-import BuildUnifier from "frame-master-plugin-build-unifier";
 import ServerAction from "../src";
 
 export default {
@@ -42,6 +41,7 @@ export default {
 			},
 		},
 		...BuildUnifier({
+			id: "cf-actions",
 			plugins: [
 				ServerAction({
 					outDir: ".frame-master/build",

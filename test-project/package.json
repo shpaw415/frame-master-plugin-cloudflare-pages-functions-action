@@ -8,8 +8,7 @@
 		"@types/react-dom": "^19.2.3"
 	},
 	"dependencies": {
-		"frame-master": "4.0.0-beta.1",
-		"frame-master-plugin-build-unifier": "^2.1.0",
+		"frame-master": "4.0.0-beta.7",
 		"frame-master-plugin-cloudflare-pages-functions-action": "..",
 		"react": "^19.2.5",
 		"react-dom": "^19.2.5",
