@@ -10,9 +10,6 @@ import {
 import { isProd, verboseLog } from "frame-master/utils";
 import PackageJson from "../package.json";
 import { getBuilder } from "frame-master/build";
-import clientBootstrap from "./client/bootstrap.ts" with { type: "text" };
-
-const clientBootstrapContents = clientBootstrap as unknown as string;
 
 declare global {
 	var WRANGLER_PROCESS: Bun.Subprocess;
@@ -345,7 +342,7 @@ export default function createCloudFlareWorkerActionPlugin(
 		version: PackageJson.version,
 		virtualModules: {
 			[CLIENT_BOOTSTRAP_SPECIFIER]: {
-				contents: clientBootstrapContents,
+				contents: `export { default } from ${JSON.stringify(join(__dirname, "client", "bootstrap.ts"))};`,
 				loader: "ts",
 				injectRuntime: true,
 			},

@@ -1,27 +1,22 @@
 import { afterEach, expect, test } from "bun:test";
 import { createPluginTestEnv, type PluginTestEnv } from "frame-master/testing";
+import { resetBuildPipelines } from "../node_modules/frame-master/src/build/pipelines.ts";
 import { peerDependencies } from "../package.json";
-import createCloudFlareWorkerActionPlugin from "../src/index";
+import { createActionPlugin, wrapActionPlugin } from "./helpers";
 
 let env: PluginTestEnv | undefined;
 
 afterEach(async () => {
 	await env?.dispose();
 	env = undefined;
+	resetBuildPipelines();
 });
 
 const CLIENT_BOOTSTRAP = "@cloudflare-worker-action/bootstrap.ts";
 const SERVER_BOOTSTRAP = "@cloudflare-worker-action/server.ts";
 
-function createPlugin() {
-	return createCloudFlareWorkerActionPlugin({
-		actionBasePath: "test/fixtures/actions",
-		outDir: ".frame-master/build",
-	});
-}
-
 test("derives requirement.frameMasterVersion from the package peer", () => {
-	const plugin = createPlugin();
+	const plugin = createActionPlugin();
 	expect(plugin.requirement?.frameMasterVersion).toBe(
 		peerDependencies["frame-master"],
 	);
@@ -30,9 +25,9 @@ test("derives requirement.frameMasterVersion from the package peer", () => {
 });
 
 test("loads the action bootstrap through the v4 runtime virtual-module registry", async () => {
-	const plugin = createPlugin();
+	const { plugins } = wrapActionPlugin();
 	env = await createPluginTestEnv({
-		plugins: [plugin],
+		plugins,
 		startServer: false,
 		runCreateContext: false,
 		runServerStart: false,
@@ -43,6 +38,7 @@ test("loads the action bootstrap through the v4 runtime virtual-module registry"
 	expect(client).toBeDefined();
 	expect(client?.injectRuntime).toBe(true);
 	expect(client?.loader).toBe("ts");
+	expect(String(client?.contents)).toContain("client/bootstrap.ts");
 
 	const server = registry.getModule(SERVER_BOOTSTRAP);
 	expect(server).toBeDefined();
@@ -59,7 +55,7 @@ test("loads the action bootstrap through the v4 runtime virtual-module registry"
 });
 
 test("declares virtual bootstraps without BuildConfig.files", () => {
-	const plugin = createPlugin();
+	const plugin = createActionPlugin();
 	const buildConfig = plugin.build?.buildConfig;
 	expect(typeof buildConfig).toBe("function");
 	const config = typeof buildConfig === "function" ? buildConfig() : buildConfig;
@@ -70,7 +66,7 @@ test("declares virtual bootstraps without BuildConfig.files", () => {
 });
 
 test("serverStop kills a spawned Wrangler stub", async () => {
-	const plugin = createPlugin();
+	const plugin = createActionPlugin();
 	expect(typeof plugin.serverStop).toBe("function");
 
 	const killed: string[] = [];
@@ -79,7 +75,6 @@ test("serverStop kills a spawned Wrangler stub", async () => {
 		exitCode: null,
 		kill() {
 			killed.push("kill");
-			this.killed = true;
 		},
 	} as unknown as Bun.Subprocess;
 

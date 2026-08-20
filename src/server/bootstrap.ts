@@ -1,40 +1,12 @@
 import type {
 	Response as CFResponse,
 	EventContext,
-	FormData,
 } from "@cloudflare/workers-types";
-import superjson from "superjson";
-
-function parseData(formData?: FormData) {
-	const propsArray: Array<
-		Array<File> | File | string | Record<string, unknown> | FormData
-	> = [];
-	if (!formData) return propsArray;
-	const batchsIDs: string[] = [];
-	for (const [key, value] of Array.from(formData.entries())) {
-		if (key.startsWith("FILE_")) propsArray.push(value as unknown as File);
-		else if (key.startsWith("FILES_")) {
-			if (batchsIDs.includes(key)) continue;
-			batchsIDs.push(key);
-			propsArray.push(formData.getAll(key) as unknown as Array<File>);
-		} else {
-			propsArray.push(
-				JSON.parse(decodeURI(value as string)) as Record<string, unknown>,
-			);
-		}
-	}
-	return propsArray;
-}
-
-function paramsFromURL(url: URL): Array<unknown> {
-	const params = url.searchParams
-		.entries()
-		.toArray()
-		.map(([_, v]) => v);
-	return params.map((param) =>
-		JSON.parse(decodeURIComponent(param)),
-	) as Array<unknown>;
-}
+import {
+	decodeActionArgsFromFormData,
+	decodeActionArgsFromURL,
+	encodeActionResult,
+} from "../codec";
 
 export default async function WrapRequestHandler(
 	context: EventContext<never, never, never>,
@@ -47,8 +19,8 @@ export default async function WrapRequestHandler(
 	}
 	const parsedData =
 		context.request.method === "GET" || context.request.method === "HEAD"
-			? paramsFromURL(new URL(context.request.url))
-			: parseData(
+			? decodeActionArgsFromURL(new URL(context.request.url))
+			: decodeActionArgsFromFormData(
 					context.request.headers.get("content-type")
 						? await context.request.formData()
 						: undefined,
@@ -60,46 +32,7 @@ export default async function WrapRequestHandler(
 	}
 	parsedData.push(context);
 
-	const result = await endpoint(...parsedData);
-	switch (typeof result) {
-		case "string":
-		case "number":
-		case "boolean":
-		case "bigint":
-			return new Response(superjson.stringify(result), {
-				headers: {
-					"Content-Type": "application/json",
-					dataType: "json",
-				},
-			}) as unknown as CFResponse;
-		case "undefined":
-			return new Response(null, { status: 204 }) as unknown as CFResponse;
-		case "object":
-			if (result instanceof Response) {
-				result.headers.set("dataType", "response");
-				return result as unknown as CFResponse;
-			} else if (result instanceof Blob) {
-				const res = new Response(await result.arrayBuffer());
-				res.headers.set("dataType", "blob");
-				res.headers.set("Content-Type", result.type);
-				return res as unknown as CFResponse;
-			} else if (result instanceof File) {
-				return new Response(await result.arrayBuffer(), {
-					headers: {
-						"Content-Type": result.type,
-						dataType: "file",
-						fileData: JSON.stringify({
-							name: result.name,
-							lastModified: result.lastModified,
-						}),
-					},
-				}) as unknown as CFResponse;
-			} else {
-				return new Response(superjson.stringify(result), {
-					headers: { "Content-Type": "application/json", dataType: "json" },
-				}) as unknown as CFResponse;
-			}
-		default:
-			throw new Error(`Unsupported return type from action: ${typeof result}`);
-	}
+	return encodeActionResult(
+		await endpoint(...parsedData),
+	) as unknown as CFResponse;
 }
