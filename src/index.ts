@@ -3,12 +3,11 @@ import { basename, join } from "node:path";
 import {
 	directiveToolSingleton,
 	type FrameMasterPlugin,
+	getBuildUnifierContext,
 } from "frame-master/plugin";
 import { isProd, verboseLog } from "frame-master/utils";
 import PackageJson from "../package.json";
-import "frame-master-plugin-build-unifier";
 import { getBuilder } from "frame-master/build";
-import { getGlobalPluginContext } from "frame-master/plugin/utils";
 import clientBootstrap from "./client/bootstrap.ts" with { type: "text" };
 
 const clientBootstrapContents = clientBootstrap as unknown as string;
@@ -166,7 +165,7 @@ export default function createCloudFlareWorkerActionPlugin(
 		);
 		const pathToTempOutput = join(".frame-master", "cf-actions-temp");
 
-		getGlobalPluginContext("build-unifier")?.setBuildConfig?.(
+		getBuildUnifierContext()?.setBuildConfig?.(
 			PackageJson.name,
 			{
 				async afterBuild(conf, out) {
@@ -287,7 +286,7 @@ export default function createCloudFlareWorkerActionPlugin(
 	};
 
 	const makeDevBuild = async () => {
-		const builder = await getGlobalPluginContext("build-unifier")?.getBuilder?.(
+		const builder = await getBuildUnifierContext()?.getBuilder?.(
 			PackageJson.name,
 		);
 
@@ -343,7 +342,6 @@ export default function createCloudFlareWorkerActionPlugin(
 		return { proc, isReady };
 	};
 
-	createServerFunctionsBuildConfig();
 	return {
 		name: PackageJson.name,
 		version: PackageJson.version,
@@ -369,7 +367,6 @@ export default function createCloudFlareWorkerActionPlugin(
 		async onFileSystemChange(_ev, _path, absolutePath) {
 			if (!absolutePath.startsWith(actionBasePath)) return;
 			directiveToolSingleton.clearPaths();
-			createServerFunctionsBuildConfig();
 			const res = await makeDevBuild();
 			verboseLog(
 				`Cloudflare Worker Action - Function Bundle rebuilt: ${res?.success ? "success" : "failed"}`,
@@ -447,9 +444,6 @@ export default function createCloudFlareWorkerActionPlugin(
 		requirement: {
 			frameMasterVersion: PackageJson.peerDependencies["frame-master"],
 			bunVersion: ">=1.3.10",
-			frameMasterPlugins: {
-				"frame-master-plugin-build-unifier": PackageJson.peerDependencies["frame-master-plugin-build-unifier"],
-			},
 		},
 	};
 }
